@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using DinoGrr.Core.Localization;
+using DinoGrr.Core.Render;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
@@ -75,9 +76,8 @@ namespace DinoGrr.Core
         {
             base.LoadContent();
 
-            // Crear un píxel de 1x1 para usarlo como textura para las líneas.
-            pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
-            pixelTexture.SetData(new[] { Color.White });
+            Line.Initialize(GraphicsDevice);
+            Circle.Initialize(GraphicsDevice);
         }
 
         /// <summary>
@@ -114,43 +114,14 @@ namespace DinoGrr.Core
             spriteBatch.Begin();
 
             // Dibujar una línea desde el punto (100, 100) hasta el punto (300, 300).
-            DrawLine(spriteBatch, new Vector2(100, 100), new Vector2(300, 300), Color.Black, 2);
+            Line.Draw(spriteBatch, new Vector2(100, 100), new Vector2(300, 300), Color.Black, 2);
+            // Dibujar un círculo en el centro de la pantalla con un radio de 50.
+            Circle.Draw(spriteBatch, new Vector2(400, 300), 50, Color.Red);
 
             spriteBatch.End();
             spriteBatch.Dispose();
 
             base.Draw(gameTime);
         }
-
-
-        /// <summary>
-        /// Dibuja una línea entre dos puntos.
-        /// </summary>
-        /// <param name="spriteBatch">El SpriteBatch para dibujar.</param>
-        /// <param name="start">El punto inicial de la línea.</param>
-        /// <param name="end">El punto final de la línea.</param>
-        /// <param name="color">El color de la línea.</param>
-        /// <param name="thickness">El grosor de la línea.</param>
-        private void DrawLine(SpriteBatch spriteBatch, Vector2 start, Vector2 end, Color color, float thickness)
-        {
-            // Calcular la distancia y el ángulo entre los puntos.
-            var distance = Vector2.Distance(start, end);
-            var angle = (float)Math.Atan2(end.Y - start.Y, end.X - start.X);
-
-            // Dibujar la línea usando la textura del píxel.
-            spriteBatch.Draw(
-                pixelTexture,
-                start,
-                null,
-                color,
-                angle,
-                Vector2.Zero,
-                new Vector2(distance, thickness),
-                SpriteEffects.None,
-                0);
-        }
-
-        // Campo para almacenar la textura del píxel.
-        private Texture2D pixelTexture;
     }
 }
