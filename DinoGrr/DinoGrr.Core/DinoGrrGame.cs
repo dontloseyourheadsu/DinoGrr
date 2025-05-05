@@ -1,127 +1,129 @@
-using System;
-using System.Collections.Generic;
-using System.Globalization;
-using DinoGrr.Core.Localization;
-using DinoGrr.Core.Render;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using static System.Net.Mime.MediaTypeNames;
+using DinoGrr.Core.Physics;
+using DinoGrr.Core.Render;
+using System;
 
 namespace DinoGrr.Core
 {
-    /// <summary>
-    /// The main class for the game, responsible for managing game components, settings, 
-    /// and platform-specific configurations.
-    /// </summary>
     public class DinoGrrGame : Game
     {
-        // Resources for drawing.
-        private GraphicsDeviceManager graphicsDeviceManager;
+        private GraphicsDeviceManager _graphics;
+        private SpriteBatch _spriteBatch;
+        private VerletSystem _verletSystem;
+        private Random _random;
 
-        /// <summary>
-        /// Indicates if the game is running on a mobile platform.
-        /// </summary>
-        public readonly static bool IsMobile = OperatingSystem.IsAndroid() || OperatingSystem.IsIOS();
+        // Estado del mouse para detectar clicks
+        private MouseState _currentMouseState;
+        private MouseState _previousMouseState;
 
-        /// <summary>
-        /// Indicates if the game is running on a desktop platform.
-        /// </summary>
-        public readonly static bool IsDesktop = OperatingSystem.IsMacOS() || OperatingSystem.IsLinux() || OperatingSystem.IsWindows();
-
-        /// <summary>
-        /// Initializes a new instance of the game. Configures platform-specific settings, 
-        /// initializes services like settings and leaderboard managers, and sets up the 
-        /// screen manager for screen transitions.
-        /// </summary>
         public DinoGrrGame()
         {
-            graphicsDeviceManager = new GraphicsDeviceManager(this);
-
-            // Share GraphicsDeviceManager as a service.
-            Services.AddService(typeof(GraphicsDeviceManager), graphicsDeviceManager);
-
+            _graphics = new GraphicsDeviceManager(this);
             Content.RootDirectory = "Content";
+            IsMouseVisible = true;
 
-            // Configure screen orientations.
-            graphicsDeviceManager.SupportedOrientations = DisplayOrientation.LandscapeLeft | DisplayOrientation.LandscapeRight;
+            // Configurar tamaño de ventana
+            _graphics.PreferredBackBufferWidth = 800;
+            _graphics.PreferredBackBufferHeight = 600;
         }
 
-        /// <summary>
-        /// Initializes the game, including setting up localization and adding the 
-        /// initial screens to the ScreenManager.
-        /// </summary>
         protected override void Initialize()
         {
+            // Inicializar el sistema Verlet con las dimensiones de la ventana
+            _verletSystem = new VerletSystem(
+                _graphics.PreferredBackBufferWidth,
+                _graphics.PreferredBackBufferHeight
+            );
+
+            _random = new Random();
+
             base.Initialize();
-
-            // Load supported languages and set the default language.
-            List<CultureInfo> cultures = LocalizationManager.GetSupportedCultures();
-            var languages = new List<CultureInfo>();
-            for (int i = 0; i < cultures.Count; i++)
-            {
-                languages.Add(cultures[i]);
-            }
-
-            // TODO You should load this from a settings file or similar,
-            // based on what the user or operating system selected.
-            var selectedLanguage = LocalizationManager.DEFAULT_CULTURE_CODE;
-            LocalizationManager.SetCulture(selectedLanguage);
         }
 
-        /// <summary>
-        /// Loads game content, such as textures and particle systems.
-        /// </summary>
         protected override void LoadContent()
         {
-            base.LoadContent();
+            _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            Line.Initialize(GraphicsDevice);
+            // Inicializar la textura de píxel para dibujar círculos
             Circle.Initialize(GraphicsDevice);
+
+            // Crear algunos puntos Verlet iniciales como ejemplo
+            CreateRandomVerletPoint(new Vector2(200, 100));
+            CreateRandomVerletPoint(new Vector2(300, 200));
+            CreateRandomVerletPoint(new Vector2(500, 150));
+
+            // Añadir un punto fijo en el centro como ancla
+            _verletSystem.CreatePoint(
+                new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 2),
+                15,
+                10,
+                Color.White,
+                true
+            );
         }
 
-        /// <summary>
-        /// Updates the game's logic, called once per frame.
-        /// </summary>
-        /// <param name="gameTime">
-        /// Provides a snapshot of timing values used for game updates.
-        /// </param>
         protected override void Update(GameTime gameTime)
         {
-            // Exit the game if the Back button (GamePad) or Escape key (Keyboard) is pressed.
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed
-                || Keyboard.GetState().IsKeyDown(Keys.Escape))
+            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
+                Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-            // TODO: Add your update logic here
+            // Capturar estado del mouse
+            _previousMouseState = _currentMouseState;
+            _currentMouseState = Mouse.GetState();
+
+            // Detectar click del mouse para crear nuevo punto Verlet
+            if (_currentMouseState.LeftButton == ButtonState.Pressed &&
+                _previousMouseState.LeftButton == ButtonState.Released)
+            {
+                Vector2 mousePosition = new Vector2(_currentMouseState.X, _currentMouseState.Y);
+                CreateRandomVerletPoint(mousePosition);
+            }
+
+            // Actualizar física (deltaTime en segundos)
+            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+            _verletSystem.Update(deltaTime, 4); // 4 sub-pasos para mayor estabilidad
 
             base.Update(gameTime);
         }
 
-        /// <summary>
-        /// Draws the game's graphics, called once per frame.
-        /// </summary>
-        /// <param name="gameTime">
-        /// Provides a snapshot of timing values used for rendering.
-        /// </param>
         protected override void Draw(GameTime gameTime)
         {
-            // Clears the screen with the MonoGame orange color before drawing.
-            GraphicsDevice.Clear(Color.MonoGameOrange);
+            GraphicsDevice.Clear(Color.Black);
 
-            // Draw a line across the screen.
-            var spriteBatch = new SpriteBatch(GraphicsDevice);
-            spriteBatch.Begin();
+            _spriteBatch.Begin();
 
-            // Dibujar una línea desde el punto (100, 100) hasta el punto (300, 300).
-            Line.Draw(spriteBatch, new Vector2(100, 100), new Vector2(300, 300), Color.Black, 2);
-            // Dibujar un círculo en el centro de la pantalla con un radio de 50.
-            Circle.Draw(spriteBatch, new Vector2(400, 300), 50, Color.Red);
+            // Dibujar todos los puntos Verlet
+            _verletSystem.Draw(_spriteBatch);
 
-            spriteBatch.End();
-            spriteBatch.Dispose();
+            _spriteBatch.End();
 
             base.Draw(gameTime);
+        }
+
+        /// <summary>
+        /// Crea un punto Verlet con parámetros aleatorios en la posición especificada
+        /// </summary>
+        /// <param name="position">Posición donde crear el punto</param>
+        private void CreateRandomVerletPoint(Vector2 position)
+        {
+            // Generar radio aleatorio entre 10 y 30
+            float radius = _random.Next(10, 31);
+
+            // Generar masa proporcional al radio (r^2 * densidad)
+            float mass = radius * radius * 0.01f;
+
+            // Generar color aleatorio
+            Color color = new Color(
+                (float)_random.NextDouble(),
+                (float)_random.NextDouble(),
+                (float)_random.NextDouble()
+            );
+
+            // Crear el punto Verlet
+            _verletSystem.CreatePoint(position, radius, mass, color);
         }
     }
 }
