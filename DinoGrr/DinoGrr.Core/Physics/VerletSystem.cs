@@ -71,9 +71,9 @@ namespace DinoGrr.Core.Physics
         /// <param name="p2">Punto 2</param>
         /// <param name="stiffness">Rigidez del resorte (0.0 a 1.0)</param>
         /// <returns>El resorte creado</returns>
-        public VerletSpring CreateSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f)
+        public VerletSpring CreateSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f, float thickness = 2f)
         {
-            var s = new VerletSpring(p1, p2, stiffness);
+            var s = new VerletSpring(p1, p2, stiffness, thickness);
             springs.Add(s);
             return s;
         }

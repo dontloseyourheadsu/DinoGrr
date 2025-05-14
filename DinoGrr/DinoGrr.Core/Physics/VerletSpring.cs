@@ -18,15 +18,18 @@ namespace DinoGrr.Core.Physics
         /// <summary>Rigidez de corrección (0 – 1). 1 = corrección completa en un solo sub-paso.</summary>
         public float Stiffness;
 
+        public float Thickness = 2f; // Grosor del resorte al dibujar
+
         /// <summary>
         /// Crea un nuevo resorte entre dos puntos.
         /// </summary>
-        public VerletSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f)
+        public VerletSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f, float thickness = 2f)
         {
             P1 = p1;
             P2 = p2;
             RestLength = Vector2.Distance(p1.Position, p2.Position);
             Stiffness = MathHelper.Clamp(stiffness, 0f, 1f);
+            Thickness = thickness;
         }
 
         /// <summary>
@@ -54,9 +57,9 @@ namespace DinoGrr.Core.Physics
         }
 
         /// <summary>Dibuja el resorte como línea.</summary>
-        public void Draw(SpriteBatch sb, Color color, float thickness = 2f)
+        public void Draw(SpriteBatch sb, Color color)
         {
-            Line.Draw(sb, P1.Position, P2.Position, color, thickness);
+            Line.Draw(sb, P1.Position, P2.Position, color, Thickness);
         }
     }
 }

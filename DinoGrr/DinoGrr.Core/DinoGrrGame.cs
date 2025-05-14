@@ -63,7 +63,7 @@ namespace DinoGrr.Core
             var pB = _verletSystem.CreatePoint(new Vector2(300, 150), 15, 5, Color.Magenta);
 
             // Crear un resorte entre ellos
-            _verletSystem.CreateSpring(pA, pB, stiffness: 0.002f);
+            _verletSystem.CreateSpring(pA, pB, stiffness: 0.001f, thickness: 10f);
 
             // Añadir un punto fijo en el centro como ancla
             _verletSystem.CreatePoint(
