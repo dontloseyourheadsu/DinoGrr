@@ -83,38 +83,98 @@ namespace DinoGrr.Core.Physics
         }
 
         /// <summary>
+        /// Ajusta directamente la velocidad implícita modificando la posición anterior
+        /// </summary>
+        /// <param name="velocityChange">Cambio en la velocidad a aplicar</param>
+        public void AdjustVelocity(Vector2 velocityChange)
+        {
+            if (IsFixed)
+                return;
+
+            // Ajustamos la posición anterior para reflejar el cambio de velocidad
+            PreviousPosition = Position - (Position - PreviousPosition + velocityChange);
+        }
+
+        /// <summary>
         /// Aplica una restricción para mantener el punto dentro de los límites de la pantalla
         /// </summary>
         /// <param name="width">Ancho de la pantalla</param>
         /// <param name="height">Alto de la pantalla</param>
-        public void ConstrainToBounds(int width, int height)
+        /// <param name="bounceFactor">Factor de rebote (0.0 a 1.0)</param>
+        public void ConstrainToBounds(int width, int height, float bounceFactor = 0.8f)
         {
             if (IsFixed)
                 return;
+
+            // Velocidad actual implícita
+            Vector2 velocity = Position - PreviousPosition;
+            Vector2 newVelocity = velocity;
+            bool collided = false;
 
             // Restricción para los bordes horizontales
             if (Position.X < Radius)
             {
                 Position = new Vector2(Radius, Position.Y);
-                PreviousPosition = new Vector2(Position.X + (Position.X - PreviousPosition.X) * -0.5f, PreviousPosition.Y);
+                newVelocity.X = -velocity.X * bounceFactor;
+                collided = true;
             }
             else if (Position.X > width - Radius)
             {
                 Position = new Vector2(width - Radius, Position.Y);
-                PreviousPosition = new Vector2(Position.X + (Position.X - PreviousPosition.X) * -0.5f, PreviousPosition.Y);
+                newVelocity.X = -velocity.X * bounceFactor;
+                collided = true;
             }
 
             // Restricción para los bordes verticales
             if (Position.Y < Radius)
             {
                 Position = new Vector2(Position.X, Radius);
-                PreviousPosition = new Vector2(PreviousPosition.X, Position.Y + (Position.Y - PreviousPosition.Y) * -0.5f);
+                newVelocity.Y = -velocity.Y * bounceFactor;
+                collided = true;
             }
             else if (Position.Y > height - Radius)
             {
                 Position = new Vector2(Position.X, height - Radius);
-                PreviousPosition = new Vector2(PreviousPosition.X, Position.Y + (Position.Y - PreviousPosition.Y) * -0.5f);
+                newVelocity.Y = -velocity.Y * bounceFactor;
+                collided = true;
             }
+
+            // Si hubo colisión, actualizamos la velocidad
+            if (collided)
+            {
+                // Actualizar posición anterior para reflejar la nueva velocidad
+                PreviousPosition = Position - newVelocity;
+
+                // Añadir una pequeña fricción en las superficies
+                if (Position.Y >= height - Radius)
+                {
+                    // Fricción en el suelo
+                    float frictionFactor = 0.98f;
+                    Vector2 horizontalVelocity = new Vector2(newVelocity.X * frictionFactor, newVelocity.Y);
+                    PreviousPosition = Position - horizontalVelocity;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Calcula la velocidad actual implícita del punto
+        /// </summary>
+        /// <returns>Vector de velocidad</returns>
+        public Vector2 GetVelocity()
+        {
+            return Position - PreviousPosition;
+        }
+
+        /// <summary>
+        /// Establece la velocidad del punto
+        /// </summary>
+        /// <param name="velocity">Nueva velocidad</param>
+        public void SetVelocity(Vector2 velocity)
+        {
+            if (IsFixed)
+                return;
+
+            PreviousPosition = Position - velocity;
         }
     }
 }
