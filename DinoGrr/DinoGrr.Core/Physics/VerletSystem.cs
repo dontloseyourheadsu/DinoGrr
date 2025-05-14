@@ -10,6 +10,8 @@ namespace DinoGrr.Core.Physics
     {
         // Lista de puntos Verlet en el sistema
         private List<VerletPoint> points;
+        // Lista de resortes Verlet (opcional)
+        private readonly List<VerletSpring> springs = new();
 
         // Gravedad del sistema
         private Vector2 gravity;
@@ -63,6 +65,20 @@ namespace DinoGrr.Core.Physics
         }
 
         /// <summary>
+        /// Crea un resorte entre dos puntos Verlet
+        /// </summary>
+        /// <param name="p1">Punto 1</param>
+        /// <param name="p2">Punto 2</param>
+        /// <param name="stiffness">Rigidez del resorte (0.0 a 1.0)</param>
+        /// <returns>El resorte creado</returns>
+        public VerletSpring CreateSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f)
+        {
+            var s = new VerletSpring(p1, p2, stiffness);
+            springs.Add(s);
+            return s;
+        }
+
+        /// <summary>
         /// Actualiza la física de todos los puntos en el sistema
         /// </summary>
         /// <param name="deltaTime">Tiempo transcurrido desde la última actualización</param>
@@ -74,17 +90,21 @@ namespace DinoGrr.Core.Physics
 
             for (int step = 0; step < subSteps; step++)
             {
-                // 1. Aplicar fuerzas externas (como la gravedad)
+                // 1. aplicar fuerzas externas
                 ApplyForces();
 
-                // 2. Actualizar posiciones de los puntos
+                // 2. integrar puntos
                 UpdatePoints(subDeltaTime);
 
-                // 3. Aplicar restricciones (mantener dentro de la pantalla)
+                // 3. aplicar restricciones de resortes
+                SatisfySprings();
+
+                // 4. mantener en pantalla
                 ApplyConstraints();
 
-                // 4. Resolver colisiones entre puntos (después de las restricciones)
+                // 5. colisiones círculo–círculo
                 ResolveCollisions();
+
             }
         }
 
@@ -210,6 +230,18 @@ namespace DinoGrr.Core.Physics
         }
 
         /// <summary>
+        /// Satisface las restricciones de los resortes
+        /// </summary>
+        /// <param name="iterations">Número de iteraciones para mejorar la rigidez</param>
+        private void SatisfySprings(int iterations = 1)
+        {
+            // Varias pasadas mejoran la rigidez sin subir el sub-stepping global
+            for (int k = 0; k < iterations; k++)
+                foreach (var s in springs)
+                    s.SatisfyConstraint();
+        }
+
+        /// <summary>
         /// Dibuja todos los puntos en el sistema
         /// </summary>
         /// <param name="spriteBatch">SpriteBatch para dibujar</param>
@@ -219,6 +251,8 @@ namespace DinoGrr.Core.Physics
             {
                 Circle.Draw(spriteBatch, point.Position, point.Radius, point.Color);
             }
+            foreach (var s in springs)
+                s.Draw(spriteBatch, Color.LightGray);
         }
 
         /// <summary>

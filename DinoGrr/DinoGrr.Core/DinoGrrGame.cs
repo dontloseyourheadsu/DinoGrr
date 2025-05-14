@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework.Input;
 using DinoGrr.Core.Physics;
 using DinoGrr.Core.Render;
 using System;
+using Microsoft.Xna.Framework.Input.Touch;
 
 namespace DinoGrr.Core
 {
@@ -49,10 +50,20 @@ namespace DinoGrr.Core
             // Inicializar la textura de píxel para dibujar círculos
             Circle.Initialize(GraphicsDevice);
 
+            // Inicializar la textura de línea para dibujar resortes
+            Line.Initialize(GraphicsDevice);
+
             // Crear algunos puntos Verlet iniciales como ejemplo
             CreateRandomVerletPoint(new Vector2(200, 100));
             CreateRandomVerletPoint(new Vector2(300, 200));
             CreateRandomVerletPoint(new Vector2(500, 150));
+
+            // Crear un resorte entre dos puntos existentes
+            var pA = _verletSystem.CreatePoint(new Vector2(200, 100), 15, 5, Color.Cyan);
+            var pB = _verletSystem.CreatePoint(new Vector2(300, 150), 15, 5, Color.Magenta);
+
+            // Crear un resorte entre ellos
+            _verletSystem.CreateSpring(pA, pB, stiffness: 0.002f);
 
             // Añadir un punto fijo en el centro como ancla
             _verletSystem.CreatePoint(
@@ -80,6 +91,18 @@ namespace DinoGrr.Core
             {
                 Vector2 mousePosition = new Vector2(_currentMouseState.X, _currentMouseState.Y);
                 CreateRandomVerletPoint(mousePosition);
+            }
+
+            // Lo mismo peroo para touch input
+            TouchCollection touchState = TouchPanel.GetState();
+            if (touchState.Count > 0)
+            {
+                TouchLocation touch = touchState[0];
+                if (touch.State == TouchLocationState.Pressed)
+                {
+                    Vector2 touchPosition = touch.Position;
+                    CreateRandomVerletPoint(touchPosition);
+                }
             }
 
             // Actualizar física (deltaTime en segundos)
