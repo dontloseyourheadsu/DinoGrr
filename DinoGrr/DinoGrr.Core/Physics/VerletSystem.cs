@@ -4,269 +4,235 @@ using System.Collections.Generic;
 using DinoGrr.Core.Render;
 using System;
 
-namespace DinoGrr.Core.Physics
+namespace DinoGrr.Core.Physics;
+
+public class VerletSystem
 {
-    public class VerletSystem
+    /// <summary>
+    /// List of Verlet points in the system.
+    /// </summary>
+    private List<VerletPoint> points;
+
+    /// <summary>
+    /// List of Verlet springs (optional).
+    /// </summary>
+    private readonly List<VerletSpring> springs = new();
+
+    /// <summary>
+    /// Gravity vector for the system.
+    /// </summary>
+    private Vector2 gravity;
+
+    /// <summary>
+    /// Screen width for boundary constraints.
+    /// </summary>
+    private int screenWidth;
+
+    /// <summary>
+    /// Screen height for boundary constraints.
+    /// </summary>
+    private int screenHeight;
+
+    /// <summary>
+    /// Damping factor for collisions (0.0 to 1.0).
+    /// </summary>
+    private float dampingFactor;
+
+    /// <summary>
+    /// Creates a new Verlet physics system.
+    /// </summary>
+    /// <param name="screenWidth">Width of the screen.</param>
+    /// <param name="screenHeight">Height of the screen.</param>
+    /// <param name="gravity">Gravity vector (defaults to downward).</param>
+    /// <param name="dampingFactor">Damping factor (0.0 to 1.0, where 1.0 is perfectly elastic).</param>
+    public VerletSystem(int screenWidth, int screenHeight, Vector2? gravity = null, float dampingFactor = 0.1f)
     {
-        // Lista de puntos Verlet en el sistema
-        private List<VerletPoint> points;
-        // Lista de resortes Verlet (opcional)
-        private readonly List<VerletSpring> springs = new();
+        this.points = new List<VerletPoint>();
+        this.gravity = gravity ?? new Vector2(0, 9.8f * 11); // Default gravity value
+        this.screenWidth = screenWidth;
+        this.screenHeight = screenHeight;
+        this.dampingFactor = MathHelper.Clamp(dampingFactor, 0.0f, 1.0f);
+    }
 
-        // Gravedad del sistema
-        private Vector2 gravity;
+    /// <summary>
+    /// Adds an existing Verlet point to the system.
+    /// </summary>
+    public void AddPoint(VerletPoint point)
+    {
+        points.Add(point);
+    }
 
-        // Dimensiones de la pantalla para restricciones
-        private int screenWidth;
-        private int screenHeight;
+    /// <summary>
+    /// Creates and adds a new Verlet point to the system.
+    /// </summary>
+    public VerletPoint CreatePoint(Vector2 position, float radius, float mass, Color color, bool isFixed = false)
+    {
+        VerletPoint point = new VerletPoint(position, radius, mass, color, isFixed);
+        points.Add(point);
+        return point;
+    }
 
-        // Factor de amortiguación para las colisiones (0.0 a 1.0)
-        private float dampingFactor;
+    /// <summary>
+    /// Creates a spring between two Verlet points.
+    /// </summary>
+    public VerletSpring CreateSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f, float thickness = 2f)
+    {
+        var s = new VerletSpring(p1, p2, stiffness, thickness);
+        springs.Add(s);
+        return s;
+    }
 
-        /// <summary>
-        /// Crea un nuevo sistema de física Verlet
-        /// </summary>
-        /// <param name="screenWidth">Ancho de la pantalla</param>
-        /// <param name="screenHeight">Alto de la pantalla</param>
-        /// <param name="gravity">Vector de gravedad (por defecto hacia abajo)</param>
-        /// <param name="dampingFactor">Factor de amortiguación (0.0 a 1.0, donde 1.0 es rebote perfecto)</param>
-        public VerletSystem(int screenWidth, int screenHeight, Vector2? gravity = null, float dampingFactor = 0.5f)
+    /// <summary>
+    /// Updates the physics of all points in the system.
+    /// </summary>
+    public void Update(float deltaTime, int subSteps = 8)
+    {
+        float subDeltaTime = deltaTime / subSteps;
+
+        for (int step = 0; step < subSteps; step++)
         {
-            this.points = new List<VerletPoint>();
-            this.gravity = gravity ?? new Vector2(0, 9.8f * 10); // Valor predeterminado de gravedad
-            this.screenWidth = screenWidth;
-            this.screenHeight = screenHeight;
-            this.dampingFactor = MathHelper.Clamp(dampingFactor, 0.0f, 1.0f);
+            ApplyForces();
+            UpdatePoints(subDeltaTime);
+            SatisfySprings();
+            ApplyConstraints();
+            ResolveCollisions();
         }
+    }
 
-        /// <summary>
-        /// Añade un punto Verlet al sistema
-        /// </summary>
-        /// <param name="point">Punto Verlet a añadir</param>
-        public void AddPoint(VerletPoint point)
+    /// <summary>
+    /// Applies external forces (e.g., gravity) to all points.
+    /// </summary>
+    private void ApplyForces()
+    {
+        foreach (var point in points)
         {
-            points.Add(point);
+            point.ApplyForce(gravity * point.Mass);
         }
+    }
 
-        /// <summary>
-        /// Crea y añade un nuevo punto Verlet al sistema
-        /// </summary>
-        /// <param name="position">Posición inicial</param>
-        /// <param name="radius">Radio visual</param>
-        /// <param name="mass">Masa del punto</param>
-        /// <param name="color">Color visual</param>
-        /// <param name="isFixed">Si el punto está fijo o no</param>
-        /// <returns>El punto Verlet creado</returns>
-        public VerletPoint CreatePoint(Vector2 position, float radius, float mass, Color color, bool isFixed = false)
+    /// <summary>
+    /// Updates the position of all points.
+    /// </summary>
+    private void UpdatePoints(float deltaTime)
+    {
+        foreach (var point in points)
         {
-            VerletPoint point = new VerletPoint(position, radius, mass, color, isFixed);
-            points.Add(point);
-            return point;
+            point.Update(deltaTime);
         }
+    }
 
-        /// <summary>
-        /// Crea un resorte entre dos puntos Verlet
-        /// </summary>
-        /// <param name="p1">Punto 1</param>
-        /// <param name="p2">Punto 2</param>
-        /// <param name="stiffness">Rigidez del resorte (0.0 a 1.0)</param>
-        /// <returns>El resorte creado</returns>
-        public VerletSpring CreateSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f, float thickness = 2f)
+    /// <summary>
+    /// Resolves collisions between all points.
+    /// </summary>
+    private void ResolveCollisions()
+    {
+        for (int i = 0; i < points.Count; i++)
         {
-            var s = new VerletSpring(p1, p2, stiffness, thickness);
-            springs.Add(s);
-            return s;
-        }
-
-        /// <summary>
-        /// Actualiza la física de todos los puntos en el sistema
-        /// </summary>
-        /// <param name="deltaTime">Tiempo transcurrido desde la última actualización</param>
-        /// <param name="subSteps">Número de sub-pasos para mayor precisión</param>
-        public void Update(float deltaTime, int subSteps = 8)
-        {
-            // Aumentamos el número de subSteps predeterminado para mayor estabilidad
-            float subDeltaTime = deltaTime / subSteps;
-
-            for (int step = 0; step < subSteps; step++)
+            for (int j = i + 1; j < points.Count; j++)
             {
-                // 1. aplicar fuerzas externas
-                ApplyForces();
+                VerletPoint p1 = points[i];
+                VerletPoint p2 = points[j];
 
-                // 2. integrar puntos
-                UpdatePoints(subDeltaTime);
+                Vector2 delta = p2.Position - p1.Position;
+                float distanceSquared = delta.LengthSquared();
 
-                // 3. aplicar restricciones de resortes
-                SatisfySprings();
+                float minDistance = p1.Radius + p2.Radius;
+                float minDistanceSquared = minDistance * minDistance;
 
-                // 4. mantener en pantalla
-                ApplyConstraints();
-
-                // 5. colisiones círculo–círculo
-                ResolveCollisions();
-
-            }
-        }
-
-        /// <summary>
-        /// Aplica fuerzas externas (gravedad) a todos los puntos
-        /// </summary>
-        private void ApplyForces()
-        {
-            foreach (var point in points)
-            {
-                point.ApplyForce(gravity * point.Mass); // La gravedad se aplica proporcionalmente a la masa
-            }
-        }
-
-        /// <summary>
-        /// Actualiza las posiciones de todos los puntos
-        /// </summary>
-        /// <param name="deltaTime">Tiempo para este sub-paso</param>
-        private void UpdatePoints(float deltaTime)
-        {
-            foreach (var point in points)
-            {
-                point.Update(deltaTime);
-            }
-        }
-
-        /// <summary>
-        /// Resuelve colisiones entre todos los puntos
-        /// </summary>
-        private void ResolveCollisions()
-        {
-            // Primero, actualizamos los overlap de cada par para prevenir casos de múltiples colisiones
-            for (int i = 0; i < points.Count; i++)
-            {
-                for (int j = i + 1; j < points.Count; j++)
+                if (distanceSquared < minDistanceSquared && distanceSquared > 0)
                 {
-                    VerletPoint p1 = points[i];
-                    VerletPoint p2 = points[j];
+                    float distance = (float)Math.Sqrt(distanceSquared);
+                    Vector2 direction = delta / distance;
+                    float overlap = minDistance - distance;
 
-                    // Vector desde p1 a p2
-                    Vector2 delta = p2.Position - p1.Position;
-                    float distanceSquared = delta.LengthSquared(); // Más eficiente que calcular la raíz cuadrada
+                    float totalMass = p1.Mass + p2.Mass;
+                    float p1Factor = p1.IsFixed ? 0 : p2.Mass / totalMass;
+                    float p2Factor = p2.IsFixed ? 0 : p1.Mass / totalMass;
 
-                    // Distancia mínima al cuadrado
-                    float minDistance = p1.Radius + p2.Radius;
-                    float minDistanceSquared = minDistance * minDistance;
+                    Vector2 v1 = p1.GetVelocity();
+                    Vector2 v2 = p2.GetVelocity();
+                    Vector2 relativeVelocity = v2 - v1;
+                    float velocityAlongNormal = Vector2.Dot(relativeVelocity, direction);
 
-                    // Calculamos colisión con rapidez usando distancia al cuadrado
-                    if (distanceSquared < minDistanceSquared && distanceSquared > 0)
+                    if (velocityAlongNormal < 0)
                     {
-                        float distance = (float)Math.Sqrt(distanceSquared);
+                        float restitution = dampingFactor;
+                        float impulseMagnitude = -(1.0f + restitution) * velocityAlongNormal;
+                        impulseMagnitude /= (1.0f / p1.Mass) + (1.0f / p2.Mass);
 
-                        // Dirección normalizada
-                        Vector2 direction = delta / distance;
+                        Vector2 impulse = direction * impulseMagnitude;
 
-                        // Cantidad de solapamiento
-                        float overlap = minDistance - distance;
-
-                        // Factor de corrección basado en la masa relativa
-                        float totalMass = p1.Mass + p2.Mass;
-                        float p1Factor = p1.IsFixed ? 0 : p2.Mass / totalMass;
-                        float p2Factor = p2.IsFixed ? 0 : p1.Mass / totalMass;
-
-                        // Estimar las velocidades para un rebote más realista
-                        Vector2 v1 = p1.GetVelocity();
-                        Vector2 v2 = p2.GetVelocity();
-                        Vector2 relativeVelocity = v2 - v1;
-
-                        // Calcular la velocidad relativa a lo largo de la normal
-                        float velocityAlongNormal = Vector2.Dot(relativeVelocity, direction);
-
-                        // Sólo aplicamos impulso si los objetos se acercan
-                        if (velocityAlongNormal < 0)
+                        if (!p1.IsFixed)
                         {
-                            // Impulso basado en la conservación de la cantidad de movimiento
-                            float restitution = dampingFactor; // Coeficiente de restitución
-                            float impulseMagnitude = -(1.0f + restitution) * velocityAlongNormal;
-                            impulseMagnitude /= (1.0f / p1.Mass) + (1.0f / p2.Mass);
-
-                            // Aplicar impulso
-                            Vector2 impulse = direction * impulseMagnitude;
-
-                            if (!p1.IsFixed)
-                            {
-                                // Mover para evitar solapamiento
-                                p1.Position -= direction * overlap * p1Factor;
-                                // Ajustar velocidad
-                                p1.AdjustVelocity(-impulse / p1.Mass);
-                            }
-
-                            if (!p2.IsFixed)
-                            {
-                                // Mover para evitar solapamiento
-                                p2.Position += direction * overlap * p2Factor;
-                                // Ajustar velocidad
-                                p2.AdjustVelocity(impulse / p2.Mass);
-                            }
+                            p1.Position -= direction * overlap * p1Factor;
+                            p1.AdjustVelocity(-impulse / p1.Mass);
                         }
-                        else
+
+                        if (!p2.IsFixed)
                         {
-                            // Si no se acercan, solo corregimos posición para evitar solapamiento
-                            if (!p1.IsFixed)
-                                p1.Position -= direction * overlap * p1Factor;
-
-                            if (!p2.IsFixed)
-                                p2.Position += direction * overlap * p2Factor;
+                            p2.Position += direction * overlap * p2Factor;
+                            p2.AdjustVelocity(impulse / p2.Mass);
                         }
+                    }
+                    else
+                    {
+                        if (!p1.IsFixed)
+                            p1.Position -= direction * overlap * p1Factor;
+
+                        if (!p2.IsFixed)
+                            p2.Position += direction * overlap * p2Factor;
                     }
                 }
             }
         }
+    }
 
-        /// <summary>
-        /// Aplica restricciones de límites a todos los puntos
-        /// </summary>
-        private void ApplyConstraints()
+    /// <summary>
+    /// Applies boundary constraints to all points.
+    /// </summary>
+    private void ApplyConstraints()
+    {
+        foreach (var point in points)
         {
-            foreach (var point in points)
-            {
-                // Usamos damping para el rebote en los bordes
-                point.ConstrainToBounds(screenWidth, screenHeight, dampingFactor);
-            }
+            point.ConstrainToBounds(screenWidth, screenHeight, dampingFactor);
         }
+    }
 
-        /// <summary>
-        /// Satisface las restricciones de los resortes
-        /// </summary>
-        /// <param name="iterations">Número de iteraciones para mejorar la rigidez</param>
-        private void SatisfySprings(int iterations = 1)
-        {
-            // Varias pasadas mejoran la rigidez sin subir el sub-stepping global
-            for (int k = 0; k < iterations; k++)
-                foreach (var s in springs)
-                    s.SatisfyConstraint();
-        }
-
-        /// <summary>
-        /// Dibuja todos los puntos en el sistema
-        /// </summary>
-        /// <param name="spriteBatch">SpriteBatch para dibujar</param>
-        public void Draw(SpriteBatch spriteBatch)
-        {
-            foreach (var point in points)
-            {
-                Circle.Draw(spriteBatch, point.Position, point.Radius, point.Color);
-            }
+    /// <summary>
+    /// Satisfies spring constraints between points.
+    /// </summary>
+    private void SatisfySprings(int iterations = 1)
+    {
+        for (int k = 0; k < iterations; k++)
             foreach (var s in springs)
-                s.Draw(spriteBatch, Color.LightGray);
+                s.SatisfyConstraint();
+    }
+
+    /// <summary>
+    /// Draws all points and springs in the system.
+    /// </summary>
+    public void Draw(SpriteBatch spriteBatch)
+    {
+        foreach (var point in points)
+        {
+            Circle.Draw(spriteBatch, point.Position, point.Radius, point.Color);
         }
 
-        /// <summary>
-        /// Activa o desactiva la visualización de los bordes de colisión para debug
-        /// </summary>
-        /// <param name="show">Si se deben mostrar los bordes de colisión</param>
-        /// <param name="borderColor">Color opcional para los bordes</param>
-        public void ShowCollisionBorders(bool show, Color? borderColor = null)
+        foreach (var s in springs)
         {
-            Circle.ShowCollisionBorders = show;
-            if (borderColor.HasValue)
-            {
-                Circle.DebugBorderColor = borderColor.Value;
-            }
+            s.Draw(spriteBatch, Color.LightGray);
+        }
+    }
+
+    /// <summary>
+    /// Enables or disables rendering of collision borders for debugging.
+    /// </summary>
+    public void ShowCollisionBorders(bool show, Color? borderColor = null)
+    {
+        Circle.ShowCollisionBorders = show;
+        if (borderColor.HasValue)
+        {
+            Circle.DebugBorderColor = borderColor.Value;
         }
     }
 }

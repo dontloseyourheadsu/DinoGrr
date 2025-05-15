@@ -1,180 +1,178 @@
 ﻿using Microsoft.Xna.Framework;
 
-namespace DinoGrr.Core.Physics
+namespace DinoGrr.Core.Physics;
+
+public class VerletPoint
 {
-    public class VerletPoint
+    /// <summary>
+    /// Current position of the point.
+    /// </summary>
+    public Vector2 Position { get; set; }
+
+    /// <summary>
+    /// Previous position (used to calculate implicit velocity).
+    /// </summary>
+    public Vector2 PreviousPosition { get; set; }
+
+    /// <summary>
+    /// Current acceleration applied to the point.
+    /// </summary>
+    public Vector2 Acceleration { get; set; }
+
+    /// <summary>
+    /// Mass of the point.
+    /// </summary>
+    public float Mass { get; set; }
+
+    /// <summary>
+    /// Visual radius for rendering.
+    /// </summary>
+    public float Radius { get; set; }
+
+    /// <summary>
+    /// Color used for rendering.
+    /// </summary>
+    public Color Color { get; set; }
+
+    /// <summary>
+    /// Determines whether the point is fixed (immovable).
+    /// </summary>
+    public bool IsFixed { get; set; }
+
+    /// <summary>
+    /// Creates a new Verlet point with the specified parameters.
+    /// </summary>
+    /// <param name="position">Initial position.</param>
+    /// <param name="radius">Visual radius.</param>
+    /// <param name="mass">Mass of the point.</param>
+    /// <param name="color">Visual color.</param>
+    /// <param name="isFixed">Whether the point is fixed in space.</param>
+    public VerletPoint(Vector2 position, float radius, float mass, Color color, bool isFixed = false)
     {
-        // Posición actual
-        public Vector2 Position { get; set; }
+        Position = position;
+        PreviousPosition = position; // Initially no velocity
+        Acceleration = Vector2.Zero;
+        Mass = mass <= 0 ? 1.0f : mass; // Avoid zero or negative mass
+        Radius = radius;
+        Color = color;
+        IsFixed = isFixed;
+    }
 
-        // Posición anterior (usada para calcular la velocidad implícita)
-        public Vector2 PreviousPosition { get; set; }
+    /// <summary>
+    /// Updates the point's position using Verlet integration.
+    /// </summary>
+    /// <param name="deltaTime">Time elapsed since the last update.</param>
+    public void Update(float deltaTime)
+    {
+        if (IsFixed)
+            return;
 
-        // Aceleración actual
-        public Vector2 Acceleration { get; set; }
+        Vector2 temp = Position;
+        Vector2 velocity = Position - PreviousPosition;
+        Position = Position + velocity + Acceleration * deltaTime * deltaTime;
+        PreviousPosition = temp;
+        Acceleration = Vector2.Zero;
+    }
 
-        // Masa del punto
-        public float Mass { get; set; }
+    /// <summary>
+    /// Applies a force to the point.
+    /// </summary>
+    /// <param name="force">Force vector to apply.</param>
+    public void ApplyForce(Vector2 force)
+    {
+        if (IsFixed)
+            return;
 
-        // Radio visual para renderizado
-        public float Radius { get; set; }
+        Acceleration += force / Mass;
+    }
 
-        // Color para renderizado
-        public Color Color { get; set; }
+    /// <summary>
+    /// Directly adjusts the implicit velocity by modifying the previous position.
+    /// </summary>
+    /// <param name="velocityChange">Velocity change to apply.</param>
+    public void AdjustVelocity(Vector2 velocityChange)
+    {
+        if (IsFixed)
+            return;
 
-        // Determina si el punto está fijo (no se mueve)
-        public bool IsFixed { get; set; }
+        PreviousPosition = Position - (Position - PreviousPosition + velocityChange);
+    }
 
-        /// <summary>
-        /// Crea un nuevo punto Verlet con los parámetros especificados
-        /// </summary>
-        /// <param name="position">Posición inicial</param>
-        /// <param name="radius">Radio para visualización</param>
-        /// <param name="mass">Masa del punto</param>
-        /// <param name="color">Color para visualización</param>
-        /// <param name="isFixed">Si el punto debe permanecer fijo</param>
-        public VerletPoint(Vector2 position, float radius, float mass, Color color, bool isFixed = false)
+    /// <summary>
+    /// Constrains the point within the screen bounds and applies bounce with optional friction.
+    /// </summary>
+    /// <param name="width">Screen width.</param>
+    /// <param name="height">Screen height.</param>
+    /// <param name="bounceFactor">Bounce factor (0.0 to 1.0).</param>
+    public void ConstrainToBounds(int width, int height, float bounceFactor = 0.8f)
+    {
+        if (IsFixed)
+            return;
+
+        Vector2 velocity = Position - PreviousPosition;
+        Vector2 newVelocity = velocity;
+        bool collided = false;
+
+        // Horizontal bounds
+        if (Position.X < Radius)
         {
-            Position = position;
-            PreviousPosition = position; // Inicialmente sin velocidad
-            Acceleration = Vector2.Zero;
-            Mass = mass <= 0 ? 1.0f : mass; // Evitar masa cero o negativa
-            Radius = radius;
-            Color = color;
-            IsFixed = isFixed;
+            Position = new Vector2(Radius, Position.Y);
+            newVelocity.X = -velocity.X * bounceFactor;
+            collided = true;
+        }
+        else if (Position.X > width - Radius)
+        {
+            Position = new Vector2(width - Radius, Position.Y);
+            newVelocity.X = -velocity.X * bounceFactor;
+            collided = true;
         }
 
-        /// <summary>
-        /// Actualiza la posición del punto usando la integración de Verlet
-        /// </summary>
-        /// <param name="deltaTime">Tiempo transcurrido desde la última actualización</param>
-        public void Update(float deltaTime)
+        // Vertical bounds
+        if (Position.Y < Radius)
         {
-            if (IsFixed)
-                return;
-
-            // Guardamos la posición actual
-            Vector2 temp = Position;
-
-            // Calculamos la velocidad implícita
-            Vector2 velocity = Position - PreviousPosition;
-
-            // Aplicamos la integración de Verlet: x' = x + v + a*dt^2
-            Position = Position + velocity + Acceleration * deltaTime * deltaTime;
-
-            // Actualizamos la posición anterior
-            PreviousPosition = temp;
-
-            // Reseteamos la aceleración
-            Acceleration = Vector2.Zero;
+            Position = new Vector2(Position.X, Radius);
+            newVelocity.Y = -velocity.Y * bounceFactor;
+            collided = true;
+        }
+        else if (Position.Y > height - Radius)
+        {
+            Position = new Vector2(Position.X, height - Radius);
+            newVelocity.Y = -velocity.Y * bounceFactor;
+            collided = true;
         }
 
-        /// <summary>
-        /// Aplica una fuerza al punto
-        /// </summary>
-        /// <param name="force">Vector fuerza a aplicar</param>
-        public void ApplyForce(Vector2 force)
+        if (collided)
         {
-            if (IsFixed)
-                return;
+            PreviousPosition = Position - newVelocity;
 
-            // F = ma, entonces a = F/m
-            Acceleration += force / Mass;
-        }
-
-        /// <summary>
-        /// Ajusta directamente la velocidad implícita modificando la posición anterior
-        /// </summary>
-        /// <param name="velocityChange">Cambio en la velocidad a aplicar</param>
-        public void AdjustVelocity(Vector2 velocityChange)
-        {
-            if (IsFixed)
-                return;
-
-            // Ajustamos la posición anterior para reflejar el cambio de velocidad
-            PreviousPosition = Position - (Position - PreviousPosition + velocityChange);
-        }
-
-        /// <summary>
-        /// Aplica una restricción para mantener el punto dentro de los límites de la pantalla
-        /// </summary>
-        /// <param name="width">Ancho de la pantalla</param>
-        /// <param name="height">Alto de la pantalla</param>
-        /// <param name="bounceFactor">Factor de rebote (0.0 a 1.0)</param>
-        public void ConstrainToBounds(int width, int height, float bounceFactor = 0.8f)
-        {
-            if (IsFixed)
-                return;
-
-            // Velocidad actual implícita
-            Vector2 velocity = Position - PreviousPosition;
-            Vector2 newVelocity = velocity;
-            bool collided = false;
-
-            // Restricción para los bordes horizontales
-            if (Position.X < Radius)
+            // Add floor friction
+            if (Position.Y >= height - Radius)
             {
-                Position = new Vector2(Radius, Position.Y);
-                newVelocity.X = -velocity.X * bounceFactor;
-                collided = true;
-            }
-            else if (Position.X > width - Radius)
-            {
-                Position = new Vector2(width - Radius, Position.Y);
-                newVelocity.X = -velocity.X * bounceFactor;
-                collided = true;
-            }
-
-            // Restricción para los bordes verticales
-            if (Position.Y < Radius)
-            {
-                Position = new Vector2(Position.X, Radius);
-                newVelocity.Y = -velocity.Y * bounceFactor;
-                collided = true;
-            }
-            else if (Position.Y > height - Radius)
-            {
-                Position = new Vector2(Position.X, height - Radius);
-                newVelocity.Y = -velocity.Y * bounceFactor;
-                collided = true;
-            }
-
-            // Si hubo colisión, actualizamos la velocidad
-            if (collided)
-            {
-                // Actualizar posición anterior para reflejar la nueva velocidad
-                PreviousPosition = Position - newVelocity;
-
-                // Añadir una pequeña fricción en las superficies
-                if (Position.Y >= height - Radius)
-                {
-                    // Fricción en el suelo
-                    float frictionFactor = 0.98f;
-                    Vector2 horizontalVelocity = new Vector2(newVelocity.X * frictionFactor, newVelocity.Y);
-                    PreviousPosition = Position - horizontalVelocity;
-                }
+                float frictionFactor = 0.98f;
+                Vector2 horizontalVelocity = new Vector2(newVelocity.X * frictionFactor, newVelocity.Y);
+                PreviousPosition = Position - horizontalVelocity;
             }
         }
+    }
 
-        /// <summary>
-        /// Calcula la velocidad actual implícita del punto
-        /// </summary>
-        /// <returns>Vector de velocidad</returns>
-        public Vector2 GetVelocity()
-        {
-            return Position - PreviousPosition;
-        }
+    /// <summary>
+    /// Calculates the current implicit velocity of the point.
+    /// </summary>
+    /// <returns>Velocity vector.</returns>
+    public Vector2 GetVelocity()
+    {
+        return Position - PreviousPosition;
+    }
 
-        /// <summary>
-        /// Establece la velocidad del punto
-        /// </summary>
-        /// <param name="velocity">Nueva velocidad</param>
-        public void SetVelocity(Vector2 velocity)
-        {
-            if (IsFixed)
-                return;
+    /// <summary>
+    /// Sets the velocity of the point.
+    /// </summary>
+    /// <param name="velocity">New velocity to set.</param>
+    public void SetVelocity(Vector2 velocity)
+    {
+        if (IsFixed)
+            return;
 
-            PreviousPosition = Position - velocity;
-        }
+        PreviousPosition = Position - velocity;
     }
 }

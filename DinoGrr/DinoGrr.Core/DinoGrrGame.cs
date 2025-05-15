@@ -1,152 +1,182 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using Microsoft.Xna.Framework.Input.Touch;
 using DinoGrr.Core.Physics;
 using DinoGrr.Core.Render;
 using System;
-using Microsoft.Xna.Framework.Input.Touch;
 
-namespace DinoGrr.Core
+namespace DinoGrr.Core;
+
+/// <summary>
+/// Main game class for DinoGrr using MonoGame framework.
+/// Handles rendering, input, and Verlet physics.
+/// </summary>
+public class DinoGrrGame : Game
 {
-    public class DinoGrrGame : Game
+    /// <summary>
+    /// Manages graphics device settings and window properties.
+    /// </summary>
+    private GraphicsDeviceManager _graphics;
+
+    /// <summary>
+    /// SpriteBatch used for drawing 2D textures.
+    /// </summary>
+    private SpriteBatch _spriteBatch;
+
+    /// <summary>
+    /// Instance of the Verlet physics system.
+    /// </summary>
+    private VerletSystem _verletSystem;
+
+    /// <summary>
+    /// Random number generator for randomizing point attributes.
+    /// </summary>
+    private Random _random;
+
+    /// <summary>
+    /// Current mouse state for input handling.
+    /// </summary>
+    private MouseState _currentMouseState;
+
+    /// <summary>
+    /// Previous mouse state to detect mouse button transitions.
+    /// </summary>
+    private MouseState _previousMouseState;
+
+    /// <summary>
+    /// Initializes the game and graphics manager.
+    /// </summary>
+    public DinoGrrGame()
     {
-        private GraphicsDeviceManager _graphics;
-        private SpriteBatch _spriteBatch;
-        private VerletSystem _verletSystem;
-        private Random _random;
+        _graphics = new GraphicsDeviceManager(this);
+        Content.RootDirectory = "Content";
+        IsMouseVisible = true;
 
-        // Estado del mouse para detectar clicks
-        private MouseState _currentMouseState;
-        private MouseState _previousMouseState;
+        // Set window size
+        _graphics.PreferredBackBufferWidth = 800;
+        _graphics.PreferredBackBufferHeight = 600;
+    }
 
-        public DinoGrrGame()
+    /// <summary>
+    /// Initializes the game systems and sets up the Verlet system.
+    /// </summary>
+    protected override void Initialize()
+    {
+        _verletSystem = new VerletSystem(
+            _graphics.PreferredBackBufferWidth,
+            _graphics.PreferredBackBufferHeight
+        );
+
+        _random = new Random();
+
+        base.Initialize();
+    }
+
+    /// <summary>
+    /// Loads game content such as textures and sets up initial points and springs.
+    /// </summary>
+    protected override void LoadContent()
+    {
+        _spriteBatch = new SpriteBatch(GraphicsDevice);
+
+        // Initialize circle and line rendering utilities
+        Circle.Initialize(GraphicsDevice);
+        Line.Initialize(GraphicsDevice);
+
+        // Create example points
+        CreateRandomVerletPoint(new Vector2(200, 100));
+        CreateRandomVerletPoint(new Vector2(300, 200));
+        CreateRandomVerletPoint(new Vector2(500, 150));
+
+        // Create a spring between two custom points
+        var pA = _verletSystem.CreatePoint(new Vector2(200, 100), 15, 5, Color.Cyan);
+        var pB = _verletSystem.CreatePoint(new Vector2(300, 150), 15, 5, Color.Magenta);
+        _verletSystem.CreateSpring(pA, pB, stiffness: 0.001f, thickness: 10f);
+
+        // Add a fixed anchor point at the center
+        _verletSystem.CreatePoint(
+            new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 2),
+            15,
+            10,
+            Color.White,
+            true
+        );
+    }
+
+    /// <summary>
+    /// Handles user input, updates physics system, and creates points on interaction.
+    /// </summary>
+    /// <param name="gameTime">Provides timing values.</param>
+    protected override void Update(GameTime gameTime)
+    {
+        // Exit on Back or Escape
+        if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
+            Keyboard.GetState().IsKeyDown(Keys.Escape))
+            Exit();
+
+        // Capture mouse state
+        _previousMouseState = _currentMouseState;
+        _currentMouseState = Mouse.GetState();
+
+        // Create point on left click
+        if (_currentMouseState.LeftButton == ButtonState.Pressed &&
+            _previousMouseState.LeftButton == ButtonState.Released)
         {
-            _graphics = new GraphicsDeviceManager(this);
-            Content.RootDirectory = "Content";
-            IsMouseVisible = true;
-
-            // Configurar tamaño de ventana
-            _graphics.PreferredBackBufferWidth = 800;
-            _graphics.PreferredBackBufferHeight = 600;
+            Vector2 mousePosition = new Vector2(_currentMouseState.X, _currentMouseState.Y);
+            CreateRandomVerletPoint(mousePosition);
         }
 
-        protected override void Initialize()
+        // Touch input (first finger only)
+        TouchCollection touchState = TouchPanel.GetState();
+        if (touchState.Count > 0)
         {
-            // Inicializar el sistema Verlet con las dimensiones de la ventana
-            _verletSystem = new VerletSystem(
-                _graphics.PreferredBackBufferWidth,
-                _graphics.PreferredBackBufferHeight
-            );
-
-            _random = new Random();
-
-            base.Initialize();
-        }
-
-        protected override void LoadContent()
-        {
-            _spriteBatch = new SpriteBatch(GraphicsDevice);
-
-            // Inicializar la textura de píxel para dibujar círculos
-            Circle.Initialize(GraphicsDevice);
-
-            // Inicializar la textura de línea para dibujar resortes
-            Line.Initialize(GraphicsDevice);
-
-            // Crear algunos puntos Verlet iniciales como ejemplo
-            CreateRandomVerletPoint(new Vector2(200, 100));
-            CreateRandomVerletPoint(new Vector2(300, 200));
-            CreateRandomVerletPoint(new Vector2(500, 150));
-
-            // Crear un resorte entre dos puntos existentes
-            var pA = _verletSystem.CreatePoint(new Vector2(200, 100), 15, 5, Color.Cyan);
-            var pB = _verletSystem.CreatePoint(new Vector2(300, 150), 15, 5, Color.Magenta);
-
-            // Crear un resorte entre ellos
-            _verletSystem.CreateSpring(pA, pB, stiffness: 0.001f, thickness: 10f);
-
-            // Añadir un punto fijo en el centro como ancla
-            _verletSystem.CreatePoint(
-                new Vector2(_graphics.PreferredBackBufferWidth / 2, _graphics.PreferredBackBufferHeight / 2),
-                15,
-                10,
-                Color.White,
-                true
-            );
-        }
-
-        protected override void Update(GameTime gameTime)
-        {
-            if (GamePad.GetState(PlayerIndex.One).Buttons.Back == ButtonState.Pressed ||
-                Keyboard.GetState().IsKeyDown(Keys.Escape))
-                Exit();
-
-            // Capturar estado del mouse
-            _previousMouseState = _currentMouseState;
-            _currentMouseState = Mouse.GetState();
-
-            // Detectar click del mouse para crear nuevo punto Verlet
-            if (_currentMouseState.LeftButton == ButtonState.Pressed &&
-                _previousMouseState.LeftButton == ButtonState.Released)
+            TouchLocation touch = touchState[0];
+            if (touch.State == TouchLocationState.Pressed)
             {
-                Vector2 mousePosition = new Vector2(_currentMouseState.X, _currentMouseState.Y);
-                CreateRandomVerletPoint(mousePosition);
+                Vector2 touchPosition = touch.Position;
+                CreateRandomVerletPoint(touchPosition);
             }
-
-            // Lo mismo peroo para touch input
-            TouchCollection touchState = TouchPanel.GetState();
-            if (touchState.Count > 0)
-            {
-                TouchLocation touch = touchState[0];
-                if (touch.State == TouchLocationState.Pressed)
-                {
-                    Vector2 touchPosition = touch.Position;
-                    CreateRandomVerletPoint(touchPosition);
-                }
-            }
-
-            // Actualizar física (deltaTime en segundos)
-            float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
-            _verletSystem.Update(deltaTime, 4); // 4 sub-pasos para mayor estabilidad
-
-            base.Update(gameTime);
         }
 
-        protected override void Draw(GameTime gameTime)
-        {
-            GraphicsDevice.Clear(Color.Black);
+        // Update Verlet physics
+        float deltaTime = (float)gameTime.ElapsedGameTime.TotalSeconds;
+        _verletSystem.Update(deltaTime, 4); // 4 sub-steps for stability
 
-            _spriteBatch.Begin();
+        base.Update(gameTime);
+    }
 
-            // Dibujar todos los puntos Verlet
-            _verletSystem.Draw(_spriteBatch);
+    /// <summary>
+    /// Draws all points and springs in the physics system.
+    /// </summary>
+    /// <param name="gameTime">Provides timing values.</param>
+    protected override void Draw(GameTime gameTime)
+    {
+        GraphicsDevice.Clear(Color.Black);
 
-            _spriteBatch.End();
+        _spriteBatch.Begin();
 
-            base.Draw(gameTime);
-        }
+        _verletSystem.Draw(_spriteBatch);
 
-        /// <summary>
-        /// Crea un punto Verlet con parámetros aleatorios en la posición especificada
-        /// </summary>
-        /// <param name="position">Posición donde crear el punto</param>
-        private void CreateRandomVerletPoint(Vector2 position)
-        {
-            // Generar radio aleatorio entre 10 y 30
-            float radius = _random.Next(10, 31);
+        _spriteBatch.End();
 
-            // Generar masa proporcional al radio (r^2 * densidad)
-            float mass = radius * radius * 0.01f;
+        base.Draw(gameTime);
+    }
 
-            // Generar color aleatorio
-            Color color = new Color(
-                (float)_random.NextDouble(),
-                (float)_random.NextDouble(),
-                (float)_random.NextDouble()
-            );
+    /// <summary>
+    /// Creates a Verlet point with random radius, mass, and color at the given position.
+    /// </summary>
+    /// <param name="position">The position to place the point.</param>
+    private void CreateRandomVerletPoint(Vector2 position)
+    {
+        float radius = _random.Next(10, 31);
+        float mass = radius * radius * 0.01f;
+        Color color = new Color(
+            (float)_random.NextDouble(),
+            (float)_random.NextDouble(),
+            (float)_random.NextDouble()
+        );
 
-            // Crear el punto Verlet
-            _verletSystem.CreatePoint(position, radius, mass, color);
-        }
+        _verletSystem.CreatePoint(position, radius, mass, color);
     }
 }
