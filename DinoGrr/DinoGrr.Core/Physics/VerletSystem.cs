@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 using DinoGrr.Core.Render;
 using System;
+using System.Drawing;
+using Color = Microsoft.Xna.Framework.Color;
 
 namespace DinoGrr.Core.Physics;
 
@@ -24,14 +26,9 @@ public class VerletSystem
     private Vector2 gravity;
 
     /// <summary>
-    /// Screen width for boundary constraints.
+    /// Screen bounds for the system.
     /// </summary>
-    private int screenWidth;
-
-    /// <summary>
-    /// Screen height for boundary constraints.
-    /// </summary>
-    private int screenHeight;
+    private RectangleF _bounds;
 
     /// <summary>
     /// Damping factor for collisions (0.0 to 1.0).
@@ -48,9 +45,8 @@ public class VerletSystem
     public VerletSystem(int screenWidth, int screenHeight, Vector2? gravity = null, float dampingFactor = 0.1f)
     {
         this.points = new List<VerletPoint>();
-        this.gravity = gravity ?? new Vector2(0, 9.8f * 11); // Default gravity value
-        this.screenWidth = screenWidth;
-        this.screenHeight = screenHeight;
+        this.gravity = gravity ?? new Vector2(0, 9.8f * 11);
+        this._bounds = new RectangleF(0, 0, screenWidth, screenHeight);
         this.dampingFactor = MathHelper.Clamp(dampingFactor, 0.0f, 1.0f);
     }
 
@@ -194,7 +190,7 @@ public class VerletSystem
     {
         foreach (var point in points)
         {
-            point.ConstrainToBounds(screenWidth, screenHeight, dampingFactor);
+            point.ConstrainToBounds(_bounds.Width, _bounds.Height, dampingFactor);
         }
     }
 
@@ -234,5 +230,17 @@ public class VerletSystem
         {
             Circle.DebugBorderColor = borderColor.Value;
         }
+    }
+
+    /// <summary>
+    /// Sets the screen bounds for the system.
+    /// </summary>
+    /// <param name="left">Left boundary.</param>
+    /// <param name="top">Top boundary.</param>
+    /// <param name="right">Right boundary.</param>
+    /// <param name="bottom">Bottom boundary.</param>
+    public void SetBounds(float left, float top, float right, float bottom)
+    {
+        _bounds = new RectangleF(left, top, right - left, bottom - top);
     }
 }

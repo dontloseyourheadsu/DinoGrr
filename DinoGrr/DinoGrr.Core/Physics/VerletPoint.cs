@@ -104,7 +104,7 @@ public class VerletPoint
     /// <param name="width">Screen width.</param>
     /// <param name="height">Screen height.</param>
     /// <param name="bounceFactor">Bounce factor (0.0 to 1.0).</param>
-    public void ConstrainToBounds(int width, int height, float bounceFactor = 0.8f)
+    public void ConstrainToBounds(float width, float height, float bounceFactor = 0.8f)
     {
         if (IsFixed)
             return;
