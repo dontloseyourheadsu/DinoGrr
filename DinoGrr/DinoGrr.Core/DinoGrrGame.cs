@@ -23,6 +23,7 @@ namespace DinoGrr.Core
         private SpriteBatch _spriteBatch;
         private VerletSystem _verletSystem;
         private Camera2D _camera;
+        private SoftBody _softJelly, _trampoline;
         private Random _rnd = new();
 
         private MouseState _currMouse, _prevMouse;
@@ -80,6 +81,19 @@ namespace DinoGrr.Core
             _verletSystem.CreatePoint(
                 new Vector2(VIRTUAL_WIDTH / 2f, VIRTUAL_HEIGHT / 2f),
                 radius: 15, mass: 10, color: Color.White, isFixed: true);
+
+            // a falling jelly block
+            _softJelly = SoftBody.CreateRectangle(_verletSystem,
+                           center: new Vector2(400, 50),
+                           w: 180, h: 100,
+                           edgeStiffness: 0.4f, shearStiffness: 0.2f);
+
+            // a trampoline floor. top two corners are fixed
+            _trampoline = SoftBody.CreateRectangle(_verletSystem,
+                           center: new Vector2(400, 550),
+                           w: 350, h: 60,
+                           edgeStiffness: 0.9f, shearStiffness: 0.5f,
+                           pinTop: true);
 
             // Initialize the camera with current viewport and virtual size
             _camera = new Camera2D(GraphicsDevice.Viewport, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);

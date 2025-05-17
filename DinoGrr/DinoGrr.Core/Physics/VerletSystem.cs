@@ -63,7 +63,7 @@ public class VerletSystem
     /// </summary>
     public VerletPoint CreatePoint(Vector2 position, float radius, float mass, Color color, bool isFixed = false)
     {
-        VerletPoint point = new VerletPoint(position, radius, mass, color, isFixed);
+        var point = new VerletPoint(position, radius, mass, color, isFixed);
         points.Add(point);
         return point;
     }
