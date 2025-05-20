@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework.Input.Touch;
 using DinoGrr.Core.Physics;
 using DinoGrr.Core.Render;
 using System;
+using System.Collections.Generic;
 using Color = Microsoft.Xna.Framework.Color;
 
 namespace DinoGrr.Core
@@ -27,6 +28,13 @@ namespace DinoGrr.Core
         private Random _rnd = new();
 
         private MouseState _currMouse, _prevMouse;
+        private KeyboardState _currKeyboard, _prevKeyboard;
+
+        // List to keep track of created points for easy selection
+        private List<VerletPoint> _trackablePoints = new();
+
+        // Currently selected point index (for cycling through with tab key)
+        private int _selectedPointIndex = -1;
 
         /// <summary>
         /// Constructs the game and initializes graphics settings.
@@ -68,25 +76,36 @@ namespace DinoGrr.Core
             Line.Initialize(GraphicsDevice);
 
             // Create a few sample points for demo purposes
-            CreateRandomPoint(new Vector2(200, 100));
-            CreateRandomPoint(new Vector2(300, 200));
-            CreateRandomPoint(new Vector2(500, 150));
+            _trackablePoints.Add(CreateRandomPoint(new Vector2(200, 100)));
+            _trackablePoints.Add(CreateRandomPoint(new Vector2(300, 200)));
+            _trackablePoints.Add(CreateRandomPoint(new Vector2(500, 150)));
 
             // Create a spring between two points
             var pA = _verletSystem.CreatePoint(new Vector2(200, 100), 15, 5, Color.Cyan);
             var pB = _verletSystem.CreatePoint(new Vector2(300, 150), 15, 5, Color.Magenta);
+            _trackablePoints.Add(pA);
+            _trackablePoints.Add(pB);
             _verletSystem.CreateSpring(pA, pB, stiffness: 0.001f, thickness: 10f);
 
             // Create a static point in the center of the virtual world
-            _verletSystem.CreatePoint(
+            var staticPoint = _verletSystem.CreatePoint(
                 new Vector2(VIRTUAL_WIDTH / 2f, VIRTUAL_HEIGHT / 2f),
                 radius: 15, mass: 10, color: Color.White, isFixed: true);
+            _trackablePoints.Add(staticPoint);
 
             // a falling jelly block
             _softJelly = SoftBody.CreateRectangle(_verletSystem,
                            center: new Vector2(400, 50),
                            w: 180, h: 100,
                            edgeStiffness: 0.4f, shearStiffness: 0.2f);
+
+            // Add corner points from the jelly to trackable points
+            if (_softJelly.Points.Count > 0)
+            {
+                _trackablePoints.Add(_softJelly.Points[0]); // Top-left corner
+                if (_softJelly.Points.Count > 2)
+                    _trackablePoints.Add(_softJelly.Points[2]); // Bottom-right corner
+            }
 
             // a trampoline floor. top two corners are fixed
             _trampoline = SoftBody.CreateRectangle(_verletSystem,
@@ -95,8 +114,25 @@ namespace DinoGrr.Core
                            edgeStiffness: 0.9f, shearStiffness: 0.5f,
                            pinTop: true);
 
+            // Add center point of trampoline to trackable points
+            if (_trampoline.Points.Count > 0)
+            {
+                int centerIndex = _trampoline.Points.Count / 2;
+                _trackablePoints.Add(_trampoline.Points[centerIndex]);
+            }
+
             // Initialize the camera with current viewport and virtual size
             _camera = new Camera2D(GraphicsDevice.Viewport, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+
+            // Set initial camera follow smoothing
+            _camera.FollowSmoothing = 0.05f; // Lower value = smoother but slower follow
+
+            // Follow the first point in the list by default
+            if (_trackablePoints.Count > 0)
+            {
+                _selectedPointIndex = 0;
+                _camera.Follow(_trackablePoints[_selectedPointIndex]);
+            }
 
             // Automatically update viewport and camera when window is resized
             Window.ClientSizeChanged += (_, __) =>
@@ -120,13 +156,32 @@ namespace DinoGrr.Core
                 Keyboard.GetState().IsKeyDown(Keys.Escape))
                 Exit();
 
-            // Handle user input for camera movement and zoom
-            _camera.HandleInput(gameTime);
+            // Track keyboard state for detecting key presses
+            _prevKeyboard = _currKeyboard;
+            _currKeyboard = Keyboard.GetState();
 
             // Track mouse state for detecting new clicks
             _prevMouse = _currMouse;
             _currMouse = Mouse.GetState();
 
+            // Handle TAB key to cycle through tracked points
+            if (IsKeyPressed(Keys.Tab) && _trackablePoints.Count > 0)
+            {
+                _selectedPointIndex = (_selectedPointIndex + 1) % _trackablePoints.Count;
+                _camera.Follow(_trackablePoints[_selectedPointIndex]);
+            }
+
+            // Press F key to stop following and return to free camera
+            if (IsKeyPressed(Keys.F))
+            {
+                _camera.Follow(null);
+                _selectedPointIndex = -1;
+            }
+
+            // Handle user input for camera movement and zoom
+            _camera.HandleInput(gameTime);
+
+            // Handle left mouse button press
             bool click = _currMouse.LeftButton == ButtonState.Pressed &&
                          _prevMouse.LeftButton == ButtonState.Released;
 
@@ -139,7 +194,33 @@ namespace DinoGrr.Core
                 if (worldPos.X >= 0 && worldPos.X <= VIRTUAL_WIDTH &&
                     worldPos.Y >= 0 && worldPos.Y <= VIRTUAL_HEIGHT)
                 {
-                    CreateRandomPoint(worldPos);
+                    var newPoint = CreateRandomPoint(worldPos);
+                    _trackablePoints.Add(newPoint);
+
+                    // Optionally automatically follow the newly created point
+                    if (_currKeyboard.IsKeyDown(Keys.LeftShift) || _currKeyboard.IsKeyDown(Keys.RightShift))
+                    {
+                        _selectedPointIndex = _trackablePoints.Count - 1;
+                        _camera.Follow(newPoint);
+                    }
+                }
+            }
+
+            // Handle right mouse button press to select a point to follow
+            bool rightClick = _currMouse.RightButton == ButtonState.Pressed &&
+                              _prevMouse.RightButton == ButtonState.Released;
+
+            if (rightClick)
+            {
+                // Try to select a point under the cursor to follow
+                Vector2 worldPos = _camera.ScreenToWorld(_currMouse.Position.ToVector2());
+                VerletPoint closestPoint = FindClosestPoint(worldPos, 50f); // 50 pixels selection radius
+
+                if (closestPoint != null)
+                {
+                    // Find index of point for tracking
+                    _selectedPointIndex = _trackablePoints.IndexOf(closestPoint);
+                    _camera.Follow(closestPoint);
                 }
             }
 
@@ -151,7 +232,8 @@ namespace DinoGrr.Core
                 if (worldPos.X >= 0 && worldPos.X <= VIRTUAL_WIDTH &&
                     worldPos.Y >= 0 && worldPos.Y <= VIRTUAL_HEIGHT)
                 {
-                    CreateRandomPoint(worldPos);
+                    var newPoint = CreateRandomPoint(worldPos);
+                    _trackablePoints.Add(newPoint);
                 }
             }
 
@@ -178,16 +260,61 @@ namespace DinoGrr.Core
             // Draw all points, springs, and visual elements in the physics system
             _verletSystem.Draw(_spriteBatch);
 
+            // Highlight the currently followed point if any
+            if (_camera.FollowTarget != null)
+            {
+                // Draw a highlight ring around the followed point
+                Circle.Draw(_spriteBatch,
+                    _camera.FollowTarget.Position,
+                    _camera.FollowTarget.Radius + 5,
+                    Color.Yellow * 0.5f);
+            }
+
             _spriteBatch.End();
 
             base.Draw(gameTime);
         }
 
         /// <summary>
+        /// Finds the closest point to a given world position within a max distance.
+        /// </summary>
+        /// <param name="worldPos">The position to search from.</param>
+        /// <param name="maxDistance">Maximum distance to consider.</param>
+        /// <returns>The closest VerletPoint or null if none found within range.</returns>
+        private VerletPoint FindClosestPoint(Vector2 worldPos, float maxDistance)
+        {
+            VerletPoint closest = null;
+            float closestDistSq = maxDistance * maxDistance;
+
+            foreach (var point in _trackablePoints)
+            {
+                float distSq = Vector2.DistanceSquared(point.Position, worldPos);
+                if (distSq < closestDistSq)
+                {
+                    closestDistSq = distSq;
+                    closest = point;
+                }
+            }
+
+            return closest;
+        }
+
+        /// <summary>
+        /// Checks if a key was just pressed this frame.
+        /// </summary>
+        /// <param name="key">The key to check.</param>
+        /// <returns>True if the key was just pressed.</returns>
+        private bool IsKeyPressed(Keys key)
+        {
+            return _currKeyboard.IsKeyDown(key) && _prevKeyboard.IsKeyUp(key);
+        }
+
+        /// <summary>
         /// Creates a new randomly colored and sized point at the specified world position.
         /// </summary>
         /// <param name="worldPos">The position in world space to create the point.</param>
-        private void CreateRandomPoint(Vector2 worldPos)
+        /// <returns>The newly created VerletPoint.</returns>
+        private VerletPoint CreateRandomPoint(Vector2 worldPos)
         {
             // Radius between 10 and 30
             float r = _rnd.Next(10, 31);
@@ -200,8 +327,8 @@ namespace DinoGrr.Core
                           (float)_rnd.NextDouble(),
                           (float)_rnd.NextDouble());
 
-            // Create the point in the physics system
-            _verletSystem.CreatePoint(worldPos, r, m, c);
+            // Create and return the point in the physics system
+            return _verletSystem.CreatePoint(worldPos, r, m, c);
         }
     }
 }

@@ -11,6 +11,7 @@ namespace DinoGrr.Core.Render
     /// - Automatic base zoom to ensure the virtual world always fits in the window.
     /// - Additional user zoom (via mouse wheel) layered on top of the base zoom.
     /// - View manipulation such as panning and zooming with optional built-in controls.
+    /// - Following a specific point with smooth interpolation.
     /// </summary>
     public sealed class Camera2D
     {
@@ -30,6 +31,12 @@ namespace DinoGrr.Core.Render
         // The scroll wheel value from the last frame (used to calculate delta).
         private int _lastWheel;
 
+        // The point being followed by the camera (if any).
+        private Physics.VerletPoint _followTarget;
+
+        // How quickly the camera moves toward its target (0-1, where 1 is instant).
+        private float _followSmoothing = 0.1f;
+
         /// <summary>
         /// Gets the total zoom applied (base zoom × user zoom).
         /// </summary>
@@ -44,6 +51,20 @@ namespace DinoGrr.Core.Render
         /// Gets the rotation of the camera in radians.
         /// </summary>
         public float Rotation { get; private set; }
+
+        /// <summary>
+        /// Gets the point the camera is currently following (if any).
+        /// </summary>
+        public Physics.VerletPoint FollowTarget => _followTarget;
+
+        /// <summary>
+        /// Gets or sets how quickly the camera moves toward its target (0-1, where 1 is instant).
+        /// </summary>
+        public float FollowSmoothing
+        {
+            get => _followSmoothing;
+            set => _followSmoothing = MathHelper.Clamp(value, 0.001f, 1f);
+        }
 
         /// <summary>
         /// Initializes a new instance of the <see cref="Camera2D"/> class.
@@ -83,13 +104,38 @@ namespace DinoGrr.Core.Render
         /// Moves the camera's position to look at a specific world position.
         /// </summary>
         /// <param name="worldPos">The target world position to center the camera on.</param>
-        public void LookAt(Vector2 worldPos) => Position = worldPos;
+        public void LookAt(Vector2 worldPos)
+        {
+            // Stop following any target when manually setting position
+            _followTarget = null;
+            Position = worldPos;
+        }
+
+        /// <summary>
+        /// Sets the camera to follow a specific Verlet point.
+        /// Pass null to stop following.
+        /// </summary>
+        /// <param name="point">The point to follow, or null to stop following.</param>
+        public void Follow(Physics.VerletPoint point)
+        {
+            _followTarget = point;
+            if (point != null)
+            {
+                // Immediately center on the point
+                Position = point.Position;
+            }
+        }
 
         /// <summary>
         /// Moves the camera's position by a world-space offset.
         /// </summary>
         /// <param name="deltaWorld">The amount to move the camera by, in world units.</param>
-        public void Move(Vector2 deltaWorld) => Position += deltaWorld;
+        public void Move(Vector2 deltaWorld)
+        {
+            // Stop following any target when manually moving
+            _followTarget = null;
+            Position += deltaWorld;
+        }
 
         /// <summary>
         /// Adjusts the user zoom level by a delta.
@@ -127,6 +173,20 @@ namespace DinoGrr.Core.Render
             Vector2.Transform(screen, Matrix.Invert(GetMatrix()));
 
         /// <summary>
+        /// Updates the camera's position to follow the target point if one is set.
+        /// </summary>
+        /// <param name="gt">GameTime for delta calculations.</param>
+        public void Update(GameTime gt)
+        {
+            if (_followTarget != null)
+            {
+                // Smoothly interpolate toward the target position
+                Vector2 targetPos = _followTarget.Position;
+                Position = Vector2.Lerp(Position, targetPos, _followSmoothing);
+            }
+        }
+
+        /// <summary>
         /// Handles input for camera panning and zooming.
         /// WASD keys pan the camera, and the mouse wheel zooms in/out around the cursor.
         /// </summary>
@@ -145,6 +205,9 @@ namespace DinoGrr.Core.Render
 
             if (pan != Vector2.Zero)
             {
+                // Stop following when manually panning
+                _followTarget = null;
+
                 // Adjust movement speed by elapsed time and inverse zoom (so speed feels consistent regardless of zoom)
                 Move(pan * (float)gt.ElapsedGameTime.TotalSeconds / Zoom);
             }
@@ -165,8 +228,11 @@ namespace DinoGrr.Core.Render
                 Vector2 after = ScreenToWorld(ms.Position.ToVector2());
 
                 // Move the camera to keep the cursor over the same world position
-                Move(before - after);
+                Position += (before - after);
             }
+
+            // Update the camera to follow target if set
+            Update(gt);
         }
 
         /// <summary>
