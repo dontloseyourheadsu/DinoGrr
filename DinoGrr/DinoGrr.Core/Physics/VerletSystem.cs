@@ -13,17 +13,17 @@ public class VerletSystem
     /// <summary>
     /// List of Verlet points in the system.
     /// </summary>
-    private List<VerletPoint> points;
+    private readonly List<VerletPoint> _points;
 
     /// <summary>
     /// List of Verlet springs (optional).
     /// </summary>
-    private readonly List<VerletSpring> springs = new();
+    private readonly List<VerletSpring> _springs = new();
 
     /// <summary>
     /// Gravity vector for the system.
     /// </summary>
-    private Vector2 gravity;
+    private readonly Vector2 _gravity;
 
     /// <summary>
     /// Screen bounds for the system.
@@ -33,7 +33,7 @@ public class VerletSystem
     /// <summary>
     /// Damping factor for collisions (0.0 to 1.0).
     /// </summary>
-    private float dampingFactor;
+    private readonly float _dampingFactor;
 
     /// <summary>
     /// Creates a new Verlet physics system.
@@ -44,10 +44,10 @@ public class VerletSystem
     /// <param name="dampingFactor">Damping factor (0.0 to 1.0, where 1.0 is perfectly elastic).</param>
     public VerletSystem(int screenWidth, int screenHeight, Vector2? gravity = null, float dampingFactor = 0.1f)
     {
-        this.points = new List<VerletPoint>();
-        this.gravity = gravity ?? new Vector2(0, 9.8f * 11);
+        this._points = new List<VerletPoint>();
+        this._gravity = gravity ?? new Vector2(0, 9.8f * 11);
         this._bounds = new RectangleF(0, 0, screenWidth, screenHeight);
-        this.dampingFactor = MathHelper.Clamp(dampingFactor, 0.0f, 1.0f);
+        this._dampingFactor = MathHelper.Clamp(dampingFactor, 0.0f, 1.0f);
     }
 
     /// <summary>
@@ -55,7 +55,7 @@ public class VerletSystem
     /// </summary>
     public void AddPoint(VerletPoint point)
     {
-        points.Add(point);
+        _points.Add(point);
     }
 
     /// <summary>
@@ -64,17 +64,17 @@ public class VerletSystem
     public VerletPoint CreatePoint(Vector2 position, float radius, float mass, Color color, bool isFixed = false)
     {
         var point = new VerletPoint(position, radius, mass, color, isFixed);
-        points.Add(point);
+        _points.Add(point);
         return point;
     }
 
     /// <summary>
     /// Creates a spring between two Verlet points.
     /// </summary>
-    public VerletSpring CreateSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f, float thickness = 2f)
+    public VerletSpring CreateSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f, float thickness = 2f, Color color = default)
     {
-        var s = new VerletSpring(p1, p2, stiffness, thickness);
-        springs.Add(s);
+        var s = new VerletSpring(p1, p2, stiffness, thickness, color);
+        _springs.Add(s);
         return s;
     }
 
@@ -100,9 +100,9 @@ public class VerletSystem
     /// </summary>
     private void ApplyForces()
     {
-        foreach (var point in points)
+        foreach (var point in _points)
         {
-            point.ApplyForce(gravity * point.Mass);
+            point.ApplyForce(_gravity * point.Mass);
         }
     }
 
@@ -111,7 +111,7 @@ public class VerletSystem
     /// </summary>
     private void UpdatePoints(float deltaTime)
     {
-        foreach (var point in points)
+        foreach (var point in _points)
         {
             point.Update(deltaTime);
         }
@@ -122,12 +122,12 @@ public class VerletSystem
     /// </summary>
     private void ResolveCollisions()
     {
-        for (int i = 0; i < points.Count; i++)
+        for (int i = 0; i < _points.Count; i++)
         {
-            for (int j = i + 1; j < points.Count; j++)
+            for (int j = i + 1; j < _points.Count; j++)
             {
-                VerletPoint p1 = points[i];
-                VerletPoint p2 = points[j];
+                VerletPoint p1 = _points[i];
+                VerletPoint p2 = _points[j];
 
                 Vector2 delta = p2.Position - p1.Position;
                 float distanceSquared = delta.LengthSquared();
@@ -152,7 +152,7 @@ public class VerletSystem
 
                     if (velocityAlongNormal < 0)
                     {
-                        float restitution = dampingFactor;
+                        float restitution = _dampingFactor;
                         float impulseMagnitude = -(1.0f + restitution) * velocityAlongNormal;
                         impulseMagnitude /= (1.0f / p1.Mass) + (1.0f / p2.Mass);
 
@@ -188,9 +188,9 @@ public class VerletSystem
     /// </summary>
     private void ApplyConstraints()
     {
-        foreach (var point in points)
+        foreach (var point in _points)
         {
-            point.ConstrainToBounds(_bounds.Width, _bounds.Height, dampingFactor);
+            point.ConstrainToBounds(_bounds.Width, _bounds.Height, _dampingFactor);
         }
     }
 
@@ -200,7 +200,7 @@ public class VerletSystem
     private void SatisfySprings(int iterations = 1)
     {
         for (int k = 0; k < iterations; k++)
-            foreach (var s in springs)
+            foreach (var s in _springs)
                 s.SatisfyConstraint();
     }
 
@@ -209,14 +209,14 @@ public class VerletSystem
     /// </summary>
     public void Draw(SpriteBatch spriteBatch)
     {
-        foreach (var point in points)
+        foreach (var point in _points)
         {
             Circle.Draw(spriteBatch, point.Position, point.Radius, point.Color);
         }
 
-        foreach (var s in springs)
+        foreach (var s in _springs)
         {
-            s.Draw(spriteBatch, Color.LightGray);
+            s.Draw(spriteBatch);
         }
     }
 
@@ -230,17 +230,5 @@ public class VerletSystem
         {
             Circle.DebugBorderColor = borderColor.Value;
         }
-    }
-
-    /// <summary>
-    /// Sets the screen bounds for the system.
-    /// </summary>
-    /// <param name="left">Left boundary.</param>
-    /// <param name="top">Top boundary.</param>
-    /// <param name="right">Right boundary.</param>
-    /// <param name="bottom">Bottom boundary.</param>
-    public void SetBounds(float left, float top, float right, float bottom)
-    {
-        _bounds = new RectangleF(left, top, right - left, bottom - top);
     }
 }

@@ -32,7 +32,12 @@ public class VerletSpring
     /// <summary>
     /// Thickness of the spring when drawn.
     /// </summary>
-    public float Thickness = 2f;
+    public float Thickness;
+
+    /// <summary>
+    /// Color of the spring when drawn.
+    /// </summary>
+    public Color Color;
 
     /// <summary>
     /// Creates a new spring between two points.
@@ -41,13 +46,16 @@ public class VerletSpring
     /// <param name="p2">Second point.</param>
     /// <param name="stiffness">Stiffness of the spring (0 – 1).</param>
     /// <param name="thickness">Thickness of the spring when drawn.</param>
-    public VerletSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f, float thickness = 2f)
+    /// <param name="color">Color of the spring when drawn.</param>
+    public VerletSpring(VerletPoint p1, VerletPoint p2, float stiffness = 1f, float thickness = 2f,
+        Color color = default)
     {
         P1 = p1;
         P2 = p2;
         RestLength = Vector2.Distance(p1.Position, p2.Position);
         Stiffness = MathHelper.Clamp(stiffness, 0f, 1f);
         Thickness = thickness;
+        Color = color == default ? Color.LightGray : color;
     }
 
     /// <summary>
@@ -78,8 +86,8 @@ public class VerletSpring
     /// Draws the spring as a line.
     /// </summary>
     /// <param name="sb">SpriteBatch used for drawing.</param>
-    public void Draw(SpriteBatch sb, Color color)
+    public void Draw(SpriteBatch sb)
     {
-        Line.Draw(sb, P1.Position, P2.Position, color, Thickness);
+        Line.Draw(sb, P1.Position, P2.Position, Color, Thickness);
     }
 }

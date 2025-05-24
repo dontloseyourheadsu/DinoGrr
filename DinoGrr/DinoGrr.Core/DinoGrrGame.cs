@@ -85,7 +85,7 @@ namespace DinoGrr.Core
             var pB = _verletSystem.CreatePoint(new Vector2(300, 150), 15, 5, Color.Magenta);
             _trackablePoints.Add(pA);
             _trackablePoints.Add(pB);
-            _verletSystem.CreateSpring(pA, pB, stiffness: 0.001f, thickness: 10f);
+            _verletSystem.CreateSpring(pA, pB, stiffness: 0.001f, thickness: 10f, color: Color.LightGray);
 
             // Create a static point in the center of the virtual world
             var staticPoint = _verletSystem.CreatePoint(

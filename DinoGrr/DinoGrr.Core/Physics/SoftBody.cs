@@ -32,22 +32,22 @@ public sealed class SoftBody
     public static SoftBody CreateRectangle(
         VerletSystem vs, Vector2 center, float w, float h,
         float radius = 6, float mass = 2,
-        float edgeStiffness = .9f,      // ⇦ stiffer outside
-        float shearStiffness = .4f,     // ⇦ looser inside
+        float edgeStiffness = .9f, // ⇦ stiffer outside
+        float shearStiffness = .4f, // ⇦ looser inside
         bool pinTop = false)
     {
-        var sb = new SoftBody(vs, 1);       // 1 here; we tune per-spring below
+        var sb = new SoftBody(vs, 1); // 1 here; we tune per-spring below
         // 4 corners
         Vector2[] c =
         {
-            center + new Vector2(-w/2, -h/2),
-            center + new Vector2( w/2, -h/2),
-            center + new Vector2( w/2,  h/2),
-            center + new Vector2(-w/2,  h/2),
+            center + new Vector2(-w / 2, -h / 2),
+            center + new Vector2(w / 2, -h / 2),
+            center + new Vector2(w / 2, h / 2),
+            center + new Vector2(-w / 2, h / 2),
         };
         foreach (var p in c)
             sb._pts.Add(vs.CreatePoint(p, radius, mass, Color.Orange,
-                                       pinTop && p.Y < center.Y));   // optional pins
+                pinTop && p.Y < center.Y)); // optional pins
 
         /* structural edges */
         sb.AddRing(edgeStiffness);
@@ -69,13 +69,14 @@ public sealed class SoftBody
             var pos = center + new Vector2(MathF.Cos(a), MathF.Sin(a)) * rad;
             sb._pts.Add(vs.CreatePoint(pos, radius, mass, Color.Lime));
         }
+
         /* outer ring */
         sb.AddRing(edgeStiffness);
         /* spokes to center (optional) */
         var hub = vs.CreatePoint(center, radius, mass, Color.Lime);
         sb._pts.Add(hub);
         for (int i = 0; i < segments; i++)
-            sb._spr.Add(vs.CreateSpring(sb._pts[i], hub, spokeStiffness));
+            sb._spr.Add(vs.CreateSpring(sb._pts[i], hub, spokeStiffness, color: Color.LightGreen));
         return sb;
     }
 
@@ -84,10 +85,11 @@ public sealed class SoftBody
     private void AddRing(float k)
     {
         for (int i = 0; i < _pts.Count; i++)
-            AddSpring(i, (i + 1) % _pts.Count, k);       // loop
+            AddSpring(i, (i + 1) % _pts.Count, k); // loop
     }
+
     private void AddSpring(int i, int j, float k)
     {
-        _spr.Add(_vs.CreateSpring(_pts[i], _pts[j], k * _localStiff));
+        _spr.Add(_vs.CreateSpring(_pts[i], _pts[j], k * _localStiff, color: Color.LightGray));
     }
 }
