@@ -21,6 +21,11 @@ public class VerletSystem
     private readonly List<VerletSpring> _springs = new();
 
     /// <summary>
+    /// List of all SoftBodies in the system for collision detection.
+    /// </summary>
+    private readonly List<SoftBody> _softBodies = new();
+
+    /// <summary>
     /// Gravity vector for the system.
     /// </summary>
     private readonly Vector2 _gravity;
@@ -79,6 +84,18 @@ public class VerletSystem
     }
 
     /// <summary>
+    /// Registers a SoftBody with the system for collision handling.
+    /// </summary>
+    /// <param name="body">The SoftBody to register.</param>
+    public void RegisterSoftBody(SoftBody body)
+    {
+        if (!_softBodies.Contains(body))
+        {
+            _softBodies.Add(body);
+        }
+    }
+
+    /// <summary>
     /// Updates the physics of all points in the system.
     /// </summary>
     public void Update(float deltaTime, int subSteps = 8)
@@ -92,6 +109,7 @@ public class VerletSystem
             SatisfySprings();
             ApplyConstraints();
             ResolveCollisions();
+            ResolveSoftBodyCollisions();
         }
     }
 
@@ -202,6 +220,306 @@ public class VerletSystem
         for (int k = 0; k < iterations; k++)
             foreach (var s in _springs)
                 s.SatisfyConstraint();
+    }
+
+    /// <summary>
+    /// Resolves collisions between all softbodies in the system.
+    /// </summary>
+    private void ResolveSoftBodyCollisions()
+    {
+        for (int i = 0; i < _softBodies.Count; i++)
+        {
+            for (int j = i + 1; j < _softBodies.Count; j++)
+            {
+                SoftBody bodyA = _softBodies[i];
+                SoftBody bodyB = _softBodies[j];
+
+                // Quick AABB check before detailed collision
+                if (!AABBOverlap(bodyA, bodyB)) continue;
+
+                // Use SAT for detailed collision detection and response
+                CheckCollisionSAT(bodyA, bodyB);
+                
+                // Additional edge-point collision handling
+                HandleEdgePointCollisions(bodyA, bodyB);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Checks if two softbodies' bounding boxes overlap.
+    /// </summary>
+    private bool AABBOverlap(SoftBody bodyA, SoftBody bodyB)
+    {
+        AABB a = GetBounds(bodyA);
+        AABB b = GetBounds(bodyB);
+        
+        return !(a.Max.X < b.Min.X || a.Min.X > b.Max.X || 
+                 a.Max.Y < b.Min.Y || a.Min.Y > b.Max.Y);
+    }
+
+    /// <summary>
+    /// Gets the axis-aligned bounding box for a softbody.
+    /// </summary>
+    private AABB GetBounds(SoftBody body)
+    {
+        if (body.Points.Count == 0)
+            return new AABB { Min = Vector2.Zero, Max = Vector2.Zero };
+            
+        Vector2 min = body.Points[0].Position;
+        Vector2 max = min;
+        
+        foreach (var point in body.Points)
+        {
+            min.X = MathF.Min(min.X, point.Position.X - point.Radius);
+            min.Y = MathF.Min(min.Y, point.Position.Y - point.Radius);
+            max.X = MathF.Max(max.X, point.Position.X + point.Radius);
+            max.Y = MathF.Max(max.Y, point.Position.Y + point.Radius);
+        }
+        
+        return new AABB { Min = min, Max = max };
+    }
+
+    /// <summary>
+    /// Performs Separating Axis Theorem collision detection and response.
+    /// </summary>
+    private bool CheckCollisionSAT(SoftBody bodyA, SoftBody bodyB)
+    {
+        // Get axes to test
+        List<Vector2> axes = new List<Vector2>();
+        
+        // Add edges from bodyA as axes
+        for (int i = 0; i < bodyA.Points.Count; i++)
+        {
+            int nextI = (i + 1) % bodyA.Points.Count;
+            Vector2 edge = bodyA.Points[nextI].Position - bodyA.Points[i].Position;
+            Vector2 normal = new Vector2(-edge.Y, edge.X);
+            if (normal.LengthSquared() > 0.0001f)
+            {
+                normal.Normalize();
+                axes.Add(normal);
+            }
+        }
+        
+        // Add edges from bodyB as axes
+        for (int i = 0; i < bodyB.Points.Count; i++)
+        {
+            int nextI = (i + 1) % bodyB.Points.Count;
+            Vector2 edge = bodyB.Points[nextI].Position - bodyB.Points[i].Position;
+            Vector2 normal = new Vector2(-edge.Y, edge.X);
+            if (normal.LengthSquared() > 0.0001f)
+            {
+                normal.Normalize();
+                axes.Add(normal);
+            }
+        }
+        
+        // Test projection overlap on all axes
+        Vector2 minOverlapAxis = Vector2.Zero;
+        float minOverlapAmount = float.MaxValue;
+        
+        foreach (var axis in axes)
+        {
+            // Project bodyA onto axis
+            float minA = float.MaxValue;
+            float maxA = float.MinValue;
+            foreach (var point in bodyA.Points)
+            {
+                float proj = Vector2.Dot(point.Position, axis);
+                minA = MathF.Min(minA, proj);
+                maxA = MathF.Max(maxA, proj);
+            }
+            
+            // Project bodyB onto axis
+            float minB = float.MaxValue;
+            float maxB = float.MinValue;
+            foreach (var point in bodyB.Points)
+            {
+                float proj = Vector2.Dot(point.Position, axis);
+                minB = MathF.Min(minB, proj);
+                maxB = MathF.Max(maxB, proj);
+            }
+            
+            // Check for separation
+            if (maxA < minB || maxB < minA)
+            {
+                // Found a separating axis, no collision
+                return false;
+            }
+            
+            // Calculate overlap
+            float overlap = MathF.Min(maxA, maxB) - MathF.Max(minA, minB);
+            
+            // Track minimum overlap for collision response
+            if (overlap < minOverlapAmount)
+            {
+                minOverlapAmount = overlap;
+                minOverlapAxis = axis;
+                
+                // Ensure axis points from A to B
+                float centerA = (minA + maxA) / 2;
+                float centerB = (minB + maxB) / 2;
+                if (centerA > centerB)
+                {
+                    minOverlapAxis = -minOverlapAxis;
+                }
+            }
+        }
+        
+        // Apply collision response using minimum translation vector
+        ApplySATCollisionResponse(bodyA, bodyB, minOverlapAxis, minOverlapAmount);
+        return true;
+    }
+
+    /// <summary>
+    /// Applies collision response based on Separating Axis Theorem results.
+    /// </summary>
+    private void ApplySATCollisionResponse(SoftBody bodyA, SoftBody bodyB, Vector2 axis, float depth)
+    {
+        // Count movable points in each body
+        int movablePointsA = 0;
+        int movablePointsB = 0;
+        
+        foreach (var point in bodyA.Points)
+            if (!point.IsFixed) movablePointsA++;
+            
+        foreach (var point in bodyB.Points)
+            if (!point.IsFixed) movablePointsB++;
+        
+        // Calculate response ratio based on movable point count
+        float totalPoints = movablePointsA + movablePointsB;
+        if (totalPoints == 0) return;
+        
+        float ratioA = movablePointsB / totalPoints;
+        float ratioB = movablePointsA / totalPoints;
+        
+        // Apply displacement to each body
+        Vector2 displaceA = axis * depth * ratioA;
+        Vector2 displaceB = -axis * depth * ratioB;
+        
+        foreach (var point in bodyA.Points)
+        {
+            if (!point.IsFixed)
+                point.Position += displaceA;
+        }
+        
+        foreach (var point in bodyB.Points)
+        {
+            if (!point.IsFixed)
+                point.Position += displaceB;
+        }
+    }
+
+    /// <summary>
+    /// Handles edge-point collisions between two softbodies.
+    /// </summary>
+    private void HandleEdgePointCollisions(SoftBody bodyA, SoftBody bodyB)
+    {
+        // First, check point-vs-edge collisions from bodyA points against bodyB edges
+        for (int i = 0; i < bodyA.Points.Count; i++)
+        {
+            var point = bodyA.Points[i];
+            
+            // Check against all edges in bodyB
+            for (int j = 0; j < bodyB.Points.Count; j++)
+            {
+                int nextJ = (j + 1) % bodyB.Points.Count;
+                var edgeStart = bodyB.Points[j];
+                var edgeEnd = bodyB.Points[nextJ];
+                
+                HandlePointEdgeCollision(point, edgeStart, edgeEnd);
+            }
+        }
+        
+        // Then, check point-vs-edge collisions from bodyB points against bodyA edges
+        for (int i = 0; i < bodyB.Points.Count; i++)
+        {
+            var point = bodyB.Points[i];
+            
+            // Check against all edges in bodyA
+            for (int j = 0; j < bodyA.Points.Count; j++)
+            {
+                int nextJ = (j + 1) % bodyA.Points.Count;
+                var edgeStart = bodyA.Points[j];
+                var edgeEnd = bodyA.Points[nextJ];
+                
+                HandlePointEdgeCollision(point, edgeStart, edgeEnd);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Handles collision between a point and an edge.
+    /// </summary>
+    private void HandlePointEdgeCollision(VerletPoint point, VerletPoint edgeStart, VerletPoint edgeEnd)
+    {
+        // Skip if point is fixed
+        if (point.IsFixed) return;
+        
+        // Calculate closest point on line segment
+        Vector2 edge = edgeEnd.Position - edgeStart.Position;
+        float edgeLength = edge.Length();
+        
+        // Skip degenerate edges
+        if (edgeLength < 0.0001f) return;
+        
+        // Normalize edge direction
+        Vector2 edgeDir = edge / edgeLength;
+        
+        // Calculate vector from edge start to point
+        Vector2 pointToEdgeStart = point.Position - edgeStart.Position;
+        
+        // Project onto edge
+        float projection = Vector2.Dot(pointToEdgeStart, edgeDir);
+        
+        // Clamp projection to edge length
+        projection = MathHelper.Clamp(projection, 0, edgeLength);
+        
+        // Calculate closest point on edge
+        Vector2 closestPoint = edgeStart.Position + edgeDir * projection;
+        
+        // Calculate vector from closest point to point
+        Vector2 normal = point.Position - closestPoint;
+        float distance = normal.Length();
+        
+        // Skip if outside collision range
+        float collisionThreshold = point.Radius;
+        if (distance > collisionThreshold || distance < 0.0001f) return;
+        
+        // Normalize normal
+        normal /= distance;
+        
+        // Calculate penetration depth
+        float penetration = collisionThreshold - distance;
+        
+        // Calculate response strength based on edge vertices' mass vs point mass
+        float edgePointMass = (edgeStart.Mass + edgeEnd.Mass) / 2;
+        float totalMass = point.Mass + edgePointMass;
+        float pointResponse = edgePointMass / totalMass;
+        float edgeResponse = point.Mass / totalMass;
+        
+        // Apply position correction to point
+        point.Position += normal * penetration * pointResponse;
+        
+        // Distribute correction to edge points based on projection
+        if (!edgeStart.IsFixed && !edgeEnd.IsFixed)
+        {
+            // Calculate barycentric coordinates
+            float alpha = 1.0f - (projection / edgeLength);
+            float beta = projection / edgeLength;
+            
+            // Apply position correction to edge points
+            edgeStart.Position -= normal * penetration * edgeResponse * alpha;
+            edgeEnd.Position -= normal * penetration * edgeResponse * beta;
+        }
+        else if (!edgeStart.IsFixed)
+        {
+            edgeStart.Position -= normal * penetration * edgeResponse;
+        }
+        else if (!edgeEnd.IsFixed)
+        {
+            edgeEnd.Position -= normal * penetration * edgeResponse;
+        }
     }
 
     /// <summary>

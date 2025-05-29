@@ -2,6 +2,9 @@
 
 namespace DinoGrr.Core.Physics;
 
+/// <summary>
+/// Represents a point in a Verlet physics simulation.
+/// </summary>
 public class VerletPoint
 {
     /// <summary>

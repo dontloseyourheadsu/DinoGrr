@@ -1,12 +1,12 @@
-﻿using Microsoft.Xna.Framework;
-using System;
+﻿using System;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework;
 
 namespace DinoGrr.Core.Physics;
 
 /// <summary>
 /// A collection of points + springs that behave like one deformable object.
-/// Call SoftBody.CreateRectangle / CreateCircle, then add it to your VerletSystem.
+/// Call SoftBody.CreateRectangle, then add it to your VerletSystem.
 /// </summary>
 public sealed class SoftBody
 {
@@ -25,58 +25,80 @@ public sealed class SoftBody
     {
         _vs = system ?? throw new ArgumentNullException(nameof(system));
         _localStiff = MathHelper.Clamp(localStiffness, 0, 1);
+        
+        // Register this softbody with the VerletSystem
+        _vs.RegisterSoftBody(this);
     }
 
     /* ---------- builders ---------- */
 
+    /// <summary>
+    /// Creates a rectangle-shaped soft body with 4 points and 4 edges.
+    /// </summary>
+    /// <param name="vs">VerletSystem to add the points and springs to.</param>
+    /// <param name="position">The position of the center of the rectangle.</param>
+    /// <param name="width">The width of the rectangle.</param>
+    /// <param name="height">The height of the rectangle.</param>
+    /// <param name="angle">The rotation angle of the rectangle.</param>
+    /// <param name="radius">The radius of the points.</param>
+    /// <param name="mass">The mass of the points.</param>
+    /// <param name="edgeStiffness">The stiffness of the edges.</param>
+    /// <param name="shearStiffness">The stiffness of the shear springs.</param>
+    /// <param name="pinTop">Whether to pin the top corners.</param>
+    /// <param name="stiffness">The overall stiffness of the soft body.</param>
+    /// <returns>A new SoftBody instance representing the rectangle.</returns>
     public static SoftBody CreateRectangle(
-        VerletSystem vs, Vector2 center, float w, float h,
+        VerletSystem vs, Vector2 position, float width, float height, float angle = 0,
         float radius = 6, float mass = 2,
         float edgeStiffness = .9f, // ⇦ stiffer outside
         float shearStiffness = .4f, // ⇦ looser inside
-        bool pinTop = false)
+        bool pinTop = false,
+        float stiffness = 0.01f)
     {
-        var sb = new SoftBody(vs, 1); // 1 here; we tune per-spring below
-        // 4 corners
-        Vector2[] c =
+        var sb = new SoftBody(vs, stiffness); // Using the new stiffness parameter here
+        
+        // Calculate corner positions with rotation
+        var corners = new Vector2[4];
+        var halfWidth = width / 2;
+        var halfHeight = height / 2;
+        
+        // Define corners relative to center (0,0)
+        Vector2[] relativeCorners =
         {
-            center + new Vector2(-w / 2, -h / 2),
-            center + new Vector2(w / 2, -h / 2),
-            center + new Vector2(w / 2, h / 2),
-            center + new Vector2(-w / 2, h / 2),
+            new Vector2(-halfWidth, -halfHeight), // top-left
+            new Vector2(halfWidth, -halfHeight),  // top-right
+            new Vector2(halfWidth, halfHeight),   // bottom-right
+            new Vector2(-halfWidth, halfHeight)   // bottom-left
         };
-        foreach (var p in c)
-            sb._pts.Add(vs.CreatePoint(p, radius, mass, Color.Orange,
-                pinTop && p.Y < center.Y)); // optional pins
+        
+        // Rotation matrix components
+        float cos = MathF.Cos(angle);
+        float sin = MathF.Sin(angle);
+        
+        // Apply rotation and position to each corner
+        for (int i = 0; i < 4; i++)
+        {
+            // Rotate the corner around (0,0)
+            float rotatedX = relativeCorners[i].X * cos - relativeCorners[i].Y * sin;
+            float rotatedY = relativeCorners[i].X * sin + relativeCorners[i].Y * cos;
+            
+            // Translate to final position
+            corners[i] = new Vector2(rotatedX, rotatedY) + position;
+            
+            // Create the verlet point
+            sb._pts.Add(vs.CreatePoint(
+                corners[i], 
+                radius, 
+                mass, 
+                Color.Orange,
+                pinTop && corners[i].Y < position.Y)); // optional pins
+        }
 
         /* structural edges */
         sb.AddRing(edgeStiffness);
         /* shear springs (⁂) keep it from collapsing like a paper bag */
         sb.AddSpring(0, 2, shearStiffness);
         sb.AddSpring(1, 3, shearStiffness);
-        return sb;
-    }
-
-    public static SoftBody CreateCircle(
-        VerletSystem vs, Vector2 center, float rad, int segments = 12,
-        float radius = 6, float mass = 2,
-        float edgeStiffness = .8f, float spokeStiffness = .3f)
-    {
-        var sb = new SoftBody(vs, 1);
-        for (int i = 0; i < segments; i++)
-        {
-            float a = i / (float)segments * MathHelper.TwoPi;
-            var pos = center + new Vector2(MathF.Cos(a), MathF.Sin(a)) * rad;
-            sb._pts.Add(vs.CreatePoint(pos, radius, mass, Color.Lime));
-        }
-
-        /* outer ring */
-        sb.AddRing(edgeStiffness);
-        /* spokes to center (optional) */
-        var hub = vs.CreatePoint(center, radius, mass, Color.Lime);
-        sb._pts.Add(hub);
-        for (int i = 0; i < segments; i++)
-            sb._spr.Add(vs.CreateSpring(sb._pts[i], hub, spokeStiffness, color: Color.LightGreen));
         return sb;
     }
 
