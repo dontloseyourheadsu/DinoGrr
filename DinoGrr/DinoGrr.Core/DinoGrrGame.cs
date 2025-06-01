@@ -6,6 +6,7 @@ using DinoGrr.Core.Physics;
 using DinoGrr.Core.Render;
 using System;
 using Color = Microsoft.Xna.Framework.Color;
+using DinoGrr.Core.Builders;
 
 namespace DinoGrr.Core
 {
@@ -67,7 +68,7 @@ namespace DinoGrr.Core
             Line.Initialize(GraphicsDevice);
 
             // Create a falling jelly block
-            _softJelly = SoftBody.CreateRectangle(
+            _softJelly = RectangleSoftBodyBuilder.CreateRectangle(
                 _verletSystem, 
                 new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3), 
                 100, 60, 
@@ -75,7 +76,7 @@ namespace DinoGrr.Core
                 stiffness: 0.01f);
 
             // Create a trampoline floor at the bottom
-            _trampoline = SoftBody.CreateRectangle(
+            _trampoline = RectangleSoftBodyBuilder.CreateRectangle(
                 _verletSystem, 
                 new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT - 100), 
                 300, 20, 
