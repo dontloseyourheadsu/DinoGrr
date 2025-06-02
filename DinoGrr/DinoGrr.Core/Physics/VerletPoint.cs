@@ -43,6 +43,11 @@ public class VerletPoint
     public bool IsFixed { get; set; }
 
     /// <summary>
+    /// The soft body this point belongs to, if any.
+    /// </summary>
+    public SoftBody OwnerSoftBody { get; set; }
+
+    /// <summary>
     /// Creates a new Verlet point with the specified parameters.
     /// </summary>
     /// <param name="position">Initial position.</param>

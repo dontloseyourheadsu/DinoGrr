@@ -53,4 +53,16 @@ public sealed class SoftBody
         // Register this softbody with the VerletSystem
         _vs.RegisterSoftBody(this);
     }
+
+    // Add this method to SoftBody:
+    /// <summary>
+    /// Sets this SoftBody as the owner of all its points.
+    /// </summary>
+    public void SetAsOwnerForPoints()
+    {
+        foreach (var point in _pts)
+        {
+            point.OwnerSoftBody = this;
+        }
+    }
 }

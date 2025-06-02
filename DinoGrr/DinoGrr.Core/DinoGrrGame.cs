@@ -7,6 +7,7 @@ using DinoGrr.Core.Render;
 using System;
 using Color = Microsoft.Xna.Framework.Color;
 using DinoGrr.Core.Builders;
+using DinoGrr.Core.Entities;
 
 namespace DinoGrr.Core
 {
@@ -25,6 +26,7 @@ namespace DinoGrr.Core
         private VerletSystem _verletSystem;
         private Camera2D _camera;
         private SoftBody _softJelly, _trampoline;
+        private NormalDinosaur _dino;
 
         private KeyboardState _currKeyboard, _prevKeyboard;
 
@@ -67,20 +69,19 @@ namespace DinoGrr.Core
             Circle.Initialize(GraphicsDevice);
             Line.Initialize(GraphicsDevice);
 
-            // Create a falling jelly block
-            _softJelly = RectangleSoftBodyBuilder.CreateRectangle(
-                _verletSystem, 
-                new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3), 
-                100, 60, 
-                MathHelper.ToRadians(15),
-                stiffness: 0.01f);
+            // Create the dinosaur
+            _dino = new NormalDinosaur(
+                _verletSystem,
+                new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3),
+                80, 120,
+                jumpForce: 150f);
 
             // Create a trampoline floor at the bottom
             _trampoline = RectangleSoftBodyBuilder.CreateRectangle(
-                _verletSystem, 
-                new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT - 100), 
-                300, 20, 
-                0, 
+                _verletSystem,
+                new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT - 100),
+                300, 20,
+                0,
                 pinTop: true,  // Pin the top corners of the trampoline
                 stiffness: 0.005f);
 
@@ -88,13 +89,10 @@ namespace DinoGrr.Core
             _camera = new Camera2D(GraphicsDevice.Viewport, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
             // Set initial camera follow smoothing
-            _camera.FollowSmoothing = 0.05f; // Lower value = smoother but slower follow
+            _camera.FollowSmoothing = 0.05f;
 
-            // Follow the jelly by default - using the first point of the jelly
-            if (_softJelly.Points.Count > 0)
-            {
-                _camera.Follow(_softJelly.Points[0]);
-            }
+            // Follow the dinosaur's center point
+            _camera.Follow(_dino.Points[0]);
 
             // Automatically update viewport and camera when window is resized
             Window.ClientSizeChanged += (_, __) =>
@@ -122,16 +120,16 @@ namespace DinoGrr.Core
             _prevKeyboard = _currKeyboard;
             _currKeyboard = Keyboard.GetState();
 
-            // Press 1 to focus on the jelly
-            if (IsKeyPressed(Keys.D1) && _softJelly.Points.Count > 0)
+            if (IsKeyPressed(Keys.O) && _dino.CanJump)
             {
-                _camera.Follow(_softJelly.Points[0]);
+                Console.WriteLine("Jumping!");
+                _dino.Jump();
             }
 
-            // Press 2 to focus on the trampoline
-            if (IsKeyPressed(Keys.D2) && _trampoline.Points.Count > 0)
+            // Press D to follow the dinosaur
+            if (IsKeyPressed(Keys.D) && _dino.Points.Count > 0)
             {
-                _camera.Follow(_trampoline.Points[0]);
+                _camera.Follow(_dino.Points[0]);
             }
 
             // Press F key to stop following and return to free camera

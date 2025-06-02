@@ -5,6 +5,8 @@ using DinoGrr.Core.Render;
 using System;
 using System.Drawing;
 using Color = Microsoft.Xna.Framework.Color;
+using DinoGrr.Core.Events;
+using DinoGrr.Core.Entities;
 
 namespace DinoGrr.Core.Physics;
 
@@ -39,6 +41,11 @@ public class VerletSystem
     /// Damping factor for collisions (0.0 to 1.0).
     /// </summary>
     private readonly float _dampingFactor;
+
+    /// <summary>
+    /// Event that is triggered when a collision occurs.
+    /// </summary>
+    public event EventHandler<CollisionEventArgs> Collision;
 
     /// <summary>
     /// Creates a new Verlet physics system.
@@ -176,6 +183,7 @@ public class VerletSystem
 
                         Vector2 impulse = direction * impulseMagnitude;
 
+                        // Apply collision response
                         if (!p1.IsFixed)
                         {
                             p1.Position -= direction * overlap * p1Factor;
@@ -187,6 +195,9 @@ public class VerletSystem
                             p2.Position += direction * overlap * p2Factor;
                             p2.AdjustVelocity(impulse / p2.Mass);
                         }
+
+                        // Fire the collision event
+                        Collision?.Invoke(this, new CollisionEventArgs(p1, p2, direction, impulseMagnitude));
                     }
                     else
                     {
@@ -379,35 +390,38 @@ public class VerletSystem
         // Count movable points in each body
         int movablePointsA = 0;
         int movablePointsB = 0;
-        
+
         foreach (var point in bodyA.Points)
             if (!point.IsFixed) movablePointsA++;
-            
+
         foreach (var point in bodyB.Points)
             if (!point.IsFixed) movablePointsB++;
-        
+
         // Calculate response ratio based on movable point count
         float totalPoints = movablePointsA + movablePointsB;
         if (totalPoints == 0) return;
-        
+
         float ratioA = movablePointsB / totalPoints;
         float ratioB = movablePointsA / totalPoints;
-        
+
         // Apply displacement to each body
         Vector2 displaceA = axis * depth * ratioA;
         Vector2 displaceB = -axis * depth * ratioB;
-        
+
         foreach (var point in bodyA.Points)
         {
             if (!point.IsFixed)
                 point.Position += displaceA;
         }
-        
+
         foreach (var point in bodyB.Points)
         {
             if (!point.IsFixed)
                 point.Position += displaceB;
         }
+
+        // Fire the softbody collision event
+        Collision?.Invoke(this, new CollisionEventArgs(bodyA, bodyB, axis, depth));
     }
 
     /// <summary>
@@ -455,59 +469,63 @@ public class VerletSystem
     {
         // Skip if point is fixed
         if (point.IsFixed) return;
-        
+
         // Calculate closest point on line segment
         Vector2 edge = edgeEnd.Position - edgeStart.Position;
         float edgeLength = edge.Length();
-        
+
         // Skip degenerate edges
         if (edgeLength < 0.0001f) return;
-        
+
         // Normalize edge direction
         Vector2 edgeDir = edge / edgeLength;
-        
+
         // Calculate vector from edge start to point
         Vector2 pointToEdgeStart = point.Position - edgeStart.Position;
-        
+
         // Project onto edge
         float projection = Vector2.Dot(pointToEdgeStart, edgeDir);
-        
+
         // Clamp projection to edge length
         projection = MathHelper.Clamp(projection, 0, edgeLength);
-        
+
         // Calculate closest point on edge
         Vector2 closestPoint = edgeStart.Position + edgeDir * projection;
-        
+
         // Calculate vector from closest point to point
         Vector2 normal = point.Position - closestPoint;
         float distance = normal.Length();
-        
+
         // Skip if outside collision range
         float collisionThreshold = point.Radius;
         if (distance > collisionThreshold || distance < 0.0001f) return;
-        
+
         // Normalize normal
         normal /= distance;
-        
+
         // Calculate penetration depth
         float penetration = collisionThreshold - distance;
-        
+
         // Calculate response strength based on edge vertices' mass vs point mass
         float edgePointMass = (edgeStart.Mass + edgeEnd.Mass) / 2;
         float totalMass = point.Mass + edgePointMass;
         float pointResponse = edgePointMass / totalMass;
         float edgeResponse = point.Mass / totalMass;
-        
+
         // Apply position correction to point
+        Vector2 originalPosition = point.Position;
         point.Position += normal * penetration * pointResponse;
-        
+
+        // Get approximate impulse based on position change
+        float impulseMagnitude = (point.Position - originalPosition).Length() * point.Mass * 0.5f;
+
         // Distribute correction to edge points based on projection
         if (!edgeStart.IsFixed && !edgeEnd.IsFixed)
         {
             // Calculate barycentric coordinates
             float alpha = 1.0f - (projection / edgeLength);
             float beta = projection / edgeLength;
-            
+
             // Apply position correction to edge points
             edgeStart.Position -= normal * penetration * edgeResponse * alpha;
             edgeEnd.Position -= normal * penetration * edgeResponse * beta;
@@ -520,6 +538,9 @@ public class VerletSystem
         {
             edgeEnd.Position -= normal * penetration * edgeResponse;
         }
+
+        // Fire the collision event
+        Collision?.Invoke(this, new CollisionEventArgs(point, edgeStart, edgeEnd, normal, impulseMagnitude));
     }
 
     /// <summary>
