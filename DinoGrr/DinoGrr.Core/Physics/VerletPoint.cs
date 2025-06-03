@@ -47,6 +47,12 @@ public class VerletPoint
     /// </summary>
     public SoftBody OwnerSoftBody { get; set; }
 
+    // Add this to your VerletPoint class
+    /// <summary>
+    /// A custom tag to help identify special points in the simulation.
+    /// </summary>
+    public string Tag { get; set; } = string.Empty;
+
     /// <summary>
     /// Creates a new Verlet point with the specified parameters.
     /// </summary>

@@ -74,7 +74,7 @@ namespace DinoGrr.Core
                 _verletSystem,
                 new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3),
                 80, 120,
-                jumpForce: 150f);
+                name: "Dino");
 
             // Create a trampoline floor at the bottom
             _trampoline = RectangleSoftBodyBuilder.CreateRectangle(
@@ -120,14 +120,13 @@ namespace DinoGrr.Core
             _prevKeyboard = _currKeyboard;
             _currKeyboard = Keyboard.GetState();
 
-            if (IsKeyPressed(Keys.O) && _dino.CanJump)
+            if (IsKeyPressed(Keys.J) && _dino.CanJump)
             {
-                Console.WriteLine("Jumping!");
                 _dino.Jump();
             }
 
-            // Press D to follow the dinosaur
-            if (IsKeyPressed(Keys.D) && _dino.Points.Count > 0)
+            // Press N to follow the dinosaur
+            if (IsKeyPressed(Keys.N) && _dino.Points.Count > 0)
             {
                 _camera.Follow(_dino.Points[0]);
             }

@@ -41,6 +41,11 @@ public sealed class SoftBody
     public readonly List<VerletSpring> _spr = new();
 
     /// <summary>
+    /// A custom tag to help identify this soft body in the simulation.
+    /// </summary>
+    public string Tag { get; set; } = string.Empty;
+
+    /// <summary>
     /// Creates a new SoftBody instance.
     /// </summary>
     /// <param name="system">The VerletSystem to add the points and springs to.</param>

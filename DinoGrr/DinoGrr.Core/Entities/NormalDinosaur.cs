@@ -58,12 +58,18 @@ public class NormalDinosaur
     private readonly VerletSystem _verletSystem;
 
     /// <summary>
+    /// The name of the dinosaur entity.
+    /// </summary>
+    public string Name { get; }
+
+    /// <summary>
     /// Creates a new NormalDinosaur instance.
     /// </summary>
     /// <param name="system">The VerletSystem to add the points and springs to.</param>
     /// <param name="position">The center position of the dinosaur.</param>
     /// <param name="width">The width of the dinosaur.</param>
     /// <param name="height">The height of the dinosaur.</param>
+    /// <param name="name">The name of the dinosaur.</param>
     /// <param name="jumpForce">The force applied when jumping.</param>
     /// <param name="collisionThreshold">The minimum impulse to register as a ground collision.</param>
     /// <param name="stiffness">The stiffness of the body.</param>
@@ -72,7 +78,8 @@ public class NormalDinosaur
         Vector2 position,
         float width,
         float height,
-        float jumpForce = 100f,
+        string name,
+        float jumpForce = 2.5f,
         float collisionThreshold = 0.5f,
         float stiffness = 0.01f
     )
@@ -80,6 +87,9 @@ public class NormalDinosaur
         _verletSystem = system ?? throw new ArgumentNullException(nameof(system));
         _jumpForce = jumpForce;
         _collisionThreshold = collisionThreshold;
+
+        // Set the name of the dinosaur
+        Name = name ?? throw new ArgumentNullException(nameof(name));
 
         // Create the dinosaur body as a rectangle
         CreateDinoBody(position, width, height, stiffness);
@@ -118,6 +128,11 @@ public class NormalDinosaur
             RightLeg = Body.Points[2]; // bottom-right
             LeftLeg = Body.Points[3];  // bottom-left
 
+            RightLeg.Tag = $"{Name}RightLeg";
+            LeftLeg.Tag = $"{Name}LeftLeg";
+
+            Body.Tag = $"{Name}Body";
+
             // Change the color of the legs to indicate they're special
             RightLeg.Color = Color.Red;
             LeftLeg.Color = Color.Red;
@@ -151,16 +166,24 @@ public class NormalDinosaur
         if (!CanJump)
             return false;
 
-        // Apply an upward force to all points
+        // Apply an upward impulse instead of a force
         Vector2 jumpVector = new Vector2(0, -_jumpForce);
+
+        // Apply a stronger impulse to the legs
+        LeftLeg.SetVelocity(LeftLeg.GetVelocity() + jumpVector * 0.2f);
+        RightLeg.SetVelocity(RightLeg.GetVelocity() + jumpVector * 0.2f);
+
+        // And slightly less to the body points
         foreach (var point in Body.Points)
         {
-            point.ApplyForce(jumpVector);
+            if (point != LeftLeg && point != RightLeg)
+            {
+                point.SetVelocity(point.GetVelocity() + jumpVector * 0.1f);
+            }
         }
 
         // Disable jumping until legs collide again
         CanJump = false;
-
         return true;
     }
 
@@ -191,9 +214,8 @@ public class NormalDinosaur
     /// </summary>
     private void HandlePointToPointCollision(CollisionEventArgs e)
     {
-        // Check if either of the legs was involved in the collision
-        bool legCollision = (e.Point1 == LeftLeg || e.Point1 == RightLeg ||
-                             e.Point2 == LeftLeg || e.Point2 == RightLeg);
+        bool legCollision = e.Point1.Tag == $"{Name}LeftLeg" || e.Point1.Tag == $"{Name}RightLeg" ||
+                                  e.Point2.Tag == $"{Name}LeftLeg" || e.Point2.Tag == $"{Name}RightLeg";
 
         // Check if the collision was strong enough and the normal is pointing upward (ground collision)
         bool isGroundCollision = e.Normal.Y < 0 && e.ImpulseMagnitude > _collisionThreshold;
@@ -212,17 +234,18 @@ public class NormalDinosaur
     private void HandlePointToEdgeCollision(CollisionEventArgs e)
     {
         // Check if the point is one of our legs
-        bool legCollision = (e.Point1 == LeftLeg || e.Point1 == RightLeg);
+        bool legCollision = e.Point1.Tag == $"{Name}LeftLeg" || e.Point1.Tag == $"{Name}RightLeg";
 
         // Check if our legs are part of the edge
-        bool legInEdge = (e.EdgeStart == LeftLeg || e.EdgeStart == RightLeg ||
-                         e.EdgeEnd == LeftLeg || e.EdgeEnd == RightLeg);
+        bool legInEdge = e.EdgeStart.Tag == $"{Name}LeftLeg" || e.EdgeStart.Tag == $"{Name}RightLeg" ||
+                         e.EdgeEnd.Tag == $"{Name}LeftLeg" || e.EdgeEnd.Tag == $"{Name}RightLeg";
 
         // Check if the collision was strong enough and the normal is pointing upward (ground collision)
+        // TODO: use the isGroundCollision
         bool isGroundCollision = e.Normal.Y < 0 && e.ImpulseMagnitude > _collisionThreshold;
 
         // Allow jumping if a leg collided with the ground (either as the point or as part of the edge)
-        if ((legCollision || legInEdge) && isGroundCollision)
+        if ((legCollision || legInEdge))
         {
             CanJump = true;
         }
@@ -234,7 +257,7 @@ public class NormalDinosaur
     private void HandleSoftBodyOverlapCollision(CollisionEventArgs e)
     {
         // Check if our body is involved in the collision
-        if (e.SoftBody1 == Body || e.SoftBody2 == Body)
+        if (e.SoftBody1.Tag == Body.Tag || e.SoftBody2.Tag == Body.Tag)
         {
             // Check if the collision was significant enough and the normal is pointing upward
             bool isGroundCollision = e.Normal.Y < 0 && e.ImpulseMagnitude > _collisionThreshold;
