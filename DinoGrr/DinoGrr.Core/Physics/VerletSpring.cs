@@ -1,6 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using DinoGrr.Core.Render;
+using DinoGrr.Core.Rendering;
 
 namespace DinoGrr.Core.Physics;
 

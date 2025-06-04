@@ -1,12 +1,12 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
-using DinoGrr.Core.Render;
 using System;
 using System.Drawing;
 using Color = Microsoft.Xna.Framework.Color;
 using DinoGrr.Core.Events;
 using DinoGrr.Core.Entities;
+using DinoGrr.Core.Rendering;
 
 namespace DinoGrr.Core.Physics;
 
@@ -250,7 +250,7 @@ public class VerletSystem
 
                 // Use SAT for detailed collision detection and response
                 CheckCollisionSAT(bodyA, bodyB);
-                
+
                 // Additional edge-point collision handling
                 HandleEdgePointCollisions(bodyA, bodyB);
             }
@@ -264,8 +264,8 @@ public class VerletSystem
     {
         AABB a = GetBounds(bodyA);
         AABB b = GetBounds(bodyB);
-        
-        return !(a.Max.X < b.Min.X || a.Min.X > b.Max.X || 
+
+        return !(a.Max.X < b.Min.X || a.Min.X > b.Max.X ||
                  a.Max.Y < b.Min.Y || a.Min.Y > b.Max.Y);
     }
 
@@ -276,10 +276,10 @@ public class VerletSystem
     {
         if (body.Points.Count == 0)
             return new AABB { Min = Vector2.Zero, Max = Vector2.Zero };
-            
+
         Vector2 min = body.Points[0].Position;
         Vector2 max = min;
-        
+
         foreach (var point in body.Points)
         {
             min.X = MathF.Min(min.X, point.Position.X - point.Radius);
@@ -287,7 +287,7 @@ public class VerletSystem
             max.X = MathF.Max(max.X, point.Position.X + point.Radius);
             max.Y = MathF.Max(max.Y, point.Position.Y + point.Radius);
         }
-        
+
         return new AABB { Min = min, Max = max };
     }
 
@@ -298,7 +298,7 @@ public class VerletSystem
     {
         // Get axes to test
         List<Vector2> axes = new List<Vector2>();
-        
+
         // Add edges from bodyA as axes
         for (int i = 0; i < bodyA.Points.Count; i++)
         {
@@ -311,7 +311,7 @@ public class VerletSystem
                 axes.Add(normal);
             }
         }
-        
+
         // Add edges from bodyB as axes
         for (int i = 0; i < bodyB.Points.Count; i++)
         {
@@ -324,11 +324,11 @@ public class VerletSystem
                 axes.Add(normal);
             }
         }
-        
+
         // Test projection overlap on all axes
         Vector2 minOverlapAxis = Vector2.Zero;
         float minOverlapAmount = float.MaxValue;
-        
+
         foreach (var axis in axes)
         {
             // Project bodyA onto axis
@@ -340,7 +340,7 @@ public class VerletSystem
                 minA = MathF.Min(minA, proj);
                 maxA = MathF.Max(maxA, proj);
             }
-            
+
             // Project bodyB onto axis
             float minB = float.MaxValue;
             float maxB = float.MinValue;
@@ -350,23 +350,23 @@ public class VerletSystem
                 minB = MathF.Min(minB, proj);
                 maxB = MathF.Max(maxB, proj);
             }
-            
+
             // Check for separation
             if (maxA < minB || maxB < minA)
             {
                 // Found a separating axis, no collision
                 return false;
             }
-            
+
             // Calculate overlap
             float overlap = MathF.Min(maxA, maxB) - MathF.Max(minA, minB);
-            
+
             // Track minimum overlap for collision response
             if (overlap < minOverlapAmount)
             {
                 minOverlapAmount = overlap;
                 minOverlapAxis = axis;
-                
+
                 // Ensure axis points from A to B
                 float centerA = (minA + maxA) / 2;
                 float centerB = (minB + maxB) / 2;
@@ -376,7 +376,7 @@ public class VerletSystem
                 }
             }
         }
-        
+
         // Apply collision response using minimum translation vector
         ApplySATCollisionResponse(bodyA, bodyB, minOverlapAxis, minOverlapAmount);
         return true;
@@ -433,30 +433,30 @@ public class VerletSystem
         for (int i = 0; i < bodyA.Points.Count; i++)
         {
             var point = bodyA.Points[i];
-            
+
             // Check against all edges in bodyB
             for (int j = 0; j < bodyB.Points.Count; j++)
             {
                 int nextJ = (j + 1) % bodyB.Points.Count;
                 var edgeStart = bodyB.Points[j];
                 var edgeEnd = bodyB.Points[nextJ];
-                
+
                 HandlePointEdgeCollision(point, edgeStart, edgeEnd);
             }
         }
-        
+
         // Then, check point-vs-edge collisions from bodyB points against bodyA edges
         for (int i = 0; i < bodyB.Points.Count; i++)
         {
             var point = bodyB.Points[i];
-            
+
             // Check against all edges in bodyA
             for (int j = 0; j < bodyA.Points.Count; j++)
             {
                 int nextJ = (j + 1) % bodyA.Points.Count;
                 var edgeStart = bodyA.Points[j];
                 var edgeEnd = bodyA.Points[nextJ];
-                
+
                 HandlePointEdgeCollision(point, edgeStart, edgeEnd);
             }
         }
