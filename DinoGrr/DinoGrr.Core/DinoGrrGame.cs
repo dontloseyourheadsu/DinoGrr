@@ -67,7 +67,7 @@ namespace DinoGrr.Core
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            _dinoTexture = Content.Load<Texture2D>("triceratops_cyan");
+            _dinoTexture = Content.Load<Texture2D>("Assets/Dinosaurs/triceratops_cyan");
 
             // Initialize rendering helpers for primitives
             Circle.Initialize(GraphicsDevice);
@@ -77,7 +77,8 @@ namespace DinoGrr.Core
             _dino = new NormalDinosaur(
                 _verletSystem,
                 new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3),
-                80, 120,
+                120, 80,
+                stiffness: 0.005f,
                 name: "Dino");
 
             // Create a trampoline floor at the bottom

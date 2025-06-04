@@ -110,10 +110,10 @@ public class NormalDinosaur
             width,
             height,
             angle: 0,
-            radius: 6,
+            radius: 1,
             mass: 2,
             edgeStiffness: 0.9f,
-            shearStiffness: 0.4f,
+            shearStiffness: 0.1f,
             pinTop: false,
             stiffness: stiffness
         );
