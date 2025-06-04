@@ -110,10 +110,10 @@ public class NormalDinosaur
             width,
             height,
             angle: 0,
-            radius: 6,
+            radius: 1,
             mass: 2,
             edgeStiffness: 0.9f,
-            shearStiffness: 0.4f,
+            shearStiffness: 0.1f,
             pinTop: false,
             stiffness: stiffness
         );
@@ -221,7 +221,7 @@ public class NormalDinosaur
         bool isGroundCollision = e.Normal.Y < 0 && e.ImpulseMagnitude > _collisionThreshold;
 
         // Allow jumping if a leg collided with the ground
-        if (legCollision && isGroundCollision)
+        if (legCollision || isGroundCollision)
         {
             CanJump = true;
         }
@@ -240,12 +240,10 @@ public class NormalDinosaur
         bool legInEdge = e.EdgeStart.Tag == $"{Name}LeftLeg" || e.EdgeStart.Tag == $"{Name}RightLeg" ||
                          e.EdgeEnd.Tag == $"{Name}LeftLeg" || e.EdgeEnd.Tag == $"{Name}RightLeg";
 
-        // Check if the collision was strong enough and the normal is pointing upward (ground collision)
-        // TODO: use the isGroundCollision
         bool isGroundCollision = e.Normal.Y < 0 && e.ImpulseMagnitude > _collisionThreshold;
 
         // Allow jumping if a leg collided with the ground (either as the point or as part of the edge)
-        if ((legCollision || legInEdge))
+        if (legCollision || legInEdge || isGroundCollision)
         {
             CanJump = true;
         }
@@ -259,14 +257,7 @@ public class NormalDinosaur
         // Check if our body is involved in the collision
         if (e.SoftBody1.Tag == Body.Tag || e.SoftBody2.Tag == Body.Tag)
         {
-            // Check if the collision was significant enough and the normal is pointing upward
-            bool isGroundCollision = e.Normal.Y < 0 && e.ImpulseMagnitude > _collisionThreshold;
-
-            // Allow jumping if there was a significant downward collision
-            if (isGroundCollision)
-            {
-                CanJump = true;
-            }
+            CanJump = true;
         }
     }
 

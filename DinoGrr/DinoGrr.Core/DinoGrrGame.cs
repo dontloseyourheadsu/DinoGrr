@@ -3,11 +3,11 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using Microsoft.Xna.Framework.Input.Touch;
 using DinoGrr.Core.Physics;
-using DinoGrr.Core.Render;
 using System;
 using Color = Microsoft.Xna.Framework.Color;
 using DinoGrr.Core.Builders;
 using DinoGrr.Core.Entities;
+using DinoGrr.Core.Rendering;
 
 namespace DinoGrr.Core
 {
@@ -25,8 +25,10 @@ namespace DinoGrr.Core
         private SpriteBatch _spriteBatch;
         private VerletSystem _verletSystem;
         private Camera2D _camera;
-        private SoftBody _softJelly, _trampoline;
+        private SoftBody _trampoline;
         private NormalDinosaur _dino;
+        private DinosaurRenderer _dinoRenderer;
+        private Texture2D _dinoTexture;
 
         private KeyboardState _currKeyboard, _prevKeyboard;
 
@@ -65,6 +67,8 @@ namespace DinoGrr.Core
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
+            _dinoTexture = Content.Load<Texture2D>("Assets/Dinosaurs/triceratops_cyan");
+
             // Initialize rendering helpers for primitives
             Circle.Initialize(GraphicsDevice);
             Line.Initialize(GraphicsDevice);
@@ -73,7 +77,8 @@ namespace DinoGrr.Core
             _dino = new NormalDinosaur(
                 _verletSystem,
                 new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3),
-                80, 120,
+                120, 80,
+                stiffness: 0.005f,
                 name: "Dino");
 
             // Create a trampoline floor at the bottom
@@ -103,6 +108,8 @@ namespace DinoGrr.Core
 
                 _camera.SetViewport(GraphicsDevice.Viewport);
             };
+
+            _dinoRenderer = new DinosaurRenderer(GraphicsDevice, _dinoTexture, _dino);
         }
 
         /// <summary>
@@ -144,6 +151,8 @@ namespace DinoGrr.Core
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _verletSystem.Update(dt, subSteps: 4); // More iterations = more stable
 
+            _dinoRenderer.Update();
+
             base.Update(gameTime);
         }
 
@@ -154,15 +163,18 @@ namespace DinoGrr.Core
         protected override void Draw(GameTime gameTime)
         {
             // Clear screen to black before drawing
-            GraphicsDevice.Clear(Color.Black);
+            GraphicsDevice.Clear(Color.White);
 
             // Begin 2D sprite rendering using the camera's transformation matrix
             _spriteBatch.Begin(transformMatrix: _camera.GetMatrix(),
                             samplerState: SamplerState.PointClamp);
 
+            // Draw the virtual world boundaries
+            DrawWorldBoundaries();
+
             // Draw all points, springs, and visual elements in the physics system
             _verletSystem.Draw(_spriteBatch);
-            
+
             // Optionally draw debug visualization
             // _verletSystem.DrawDebugSoftBodyBounds(_spriteBatch);
 
@@ -176,9 +188,37 @@ namespace DinoGrr.Core
                     Color.Yellow * 0.5f);
             }
 
+            _dinoRenderer.Draw(_camera);
+
             _spriteBatch.End();
 
             base.Draw(gameTime);
+        }
+
+        /// <summary>
+        /// Draws the boundaries of the virtual world as a black rectangle.
+        /// </summary>
+        private void DrawWorldBoundaries()
+        {
+            // Draw top border
+            DrawLine(new Vector2(0, 0), new Vector2(VIRTUAL_WIDTH, 0), Color.Black, 2f);
+
+            // Draw right border
+            DrawLine(new Vector2(VIRTUAL_WIDTH, 0), new Vector2(VIRTUAL_WIDTH, VIRTUAL_HEIGHT), Color.Black, 2f);
+
+            // Draw bottom border
+            DrawLine(new Vector2(VIRTUAL_WIDTH, VIRTUAL_HEIGHT), new Vector2(0, VIRTUAL_HEIGHT), Color.Black, 2f);
+
+            // Draw left border
+            DrawLine(new Vector2(0, VIRTUAL_HEIGHT), new Vector2(0, 0), Color.Black, 2f);
+        }
+
+        /// <summary>
+        /// Helper method to draw a line with specified thickness.
+        /// </summary>
+        private void DrawLine(Vector2 start, Vector2 end, Color color, float thickness = 1f)
+        {
+            Line.Draw(_spriteBatch, start, end, color, thickness);
         }
 
         /// <summary>

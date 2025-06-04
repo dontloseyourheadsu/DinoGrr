@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
-namespace DinoGrr.Core.Render;
+namespace DinoGrr.Core.Rendering;
 
 internal static class Line
 {

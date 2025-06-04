@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 
-namespace DinoGrr.Core.Render;
+namespace DinoGrr.Core.Rendering;
 
 internal static class Circle
 {
@@ -69,7 +69,7 @@ internal static class Circle
 
         for (int i = 0; i <= segments; i++)
         {
-            float angle = ((float)i / segments) * MathHelper.TwoPi;
+            float angle = (float)i / segments * MathHelper.TwoPi;
             points[i] = new Vector2(
                 center.X + (float)Math.Cos(angle) * radius,
                 center.Y + (float)Math.Sin(angle) * radius
