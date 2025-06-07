@@ -8,6 +8,7 @@ using Color = Microsoft.Xna.Framework.Color;
 using DinoGrr.Core.Builders;
 using DinoGrr.Core.Entities;
 using DinoGrr.Core.Rendering;
+using DinoGrr.Core.Rendering.Textures;
 
 namespace DinoGrr.Core
 {
