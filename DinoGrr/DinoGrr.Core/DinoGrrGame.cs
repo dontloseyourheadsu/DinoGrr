@@ -9,6 +9,7 @@ using DinoGrr.Core.Builders;
 using DinoGrr.Core.Entities;
 using DinoGrr.Core.Rendering;
 using DinoGrr.Core.Rendering.Textures;
+using DinoGrr.Core.Rendering.Parallax;
 
 namespace DinoGrr.Core
 {
@@ -19,7 +20,7 @@ namespace DinoGrr.Core
     public class DinoGrrGame : Game
     {
         // The logical size of the virtual world (independent of actual window size)
-        private const int VIRTUAL_WIDTH = 800;
+        private const int VIRTUAL_WIDTH = 2500;
         private const int VIRTUAL_HEIGHT = 600;
 
         private GraphicsDeviceManager _graphics;
@@ -30,6 +31,10 @@ namespace DinoGrr.Core
         private NormalDinosaur _dino;
         private DinosaurRenderer _dinoRenderer;
         private Texture2D _dinoTexture;
+
+        // Parallax background
+        private ParallaxBackground _parallaxBackground;
+        private Texture2D[] _backgroundLayers;
 
         private KeyboardState _currKeyboard, _prevKeyboard;
 
@@ -58,6 +63,9 @@ namespace DinoGrr.Core
             // Initialize the Verlet physics system using virtual dimensions
             _verletSystem = new VerletSystem(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
+            // Initialize the parallax background
+            _parallaxBackground = new ParallaxBackground(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+
             base.Initialize();
         }
 
@@ -68,11 +76,25 @@ namespace DinoGrr.Core
         {
             _spriteBatch = new SpriteBatch(GraphicsDevice);
 
-            _dinoTexture = Content.Load<Texture2D>("Assets/Dinosaurs/triceratops_cyan");
-
             // Initialize rendering helpers for primitives
             Circle.Initialize(GraphicsDevice);
             Line.Initialize(GraphicsDevice);
+
+            _dinoTexture = Content.Load<Texture2D>("Assets/Dinosaurs/triceratops_cyan");
+
+            // Load background textures
+            // Note: You'll need to add these images to your Content project
+            _backgroundLayers = new Texture2D[2];
+            _backgroundLayers[0] = Content.Load<Texture2D>("Assets/Backgrounds/mountains"); // Farthest (mountains)
+            _backgroundLayers[1] = Content.Load<Texture2D>("Assets/Backgrounds/plants-background"); // Closer (trees)
+
+            // Initialize parallax background with different movement factors
+            // Lower values move slower (appear farther away)
+            float[] parallaxFactors = { 0.03f, 0.05f };
+            Color[] tints = { Color.White, Color.White };
+            float[] scales = { 0.8f, 1f };
+            float[] verticalOffsets = { -180f, -120f }; // Adjust this value to move background up
+            _parallaxBackground.Initialize(_backgroundLayers, parallaxFactors, tints, scales, verticalOffsets);
 
             // Create the dinosaur
             _dino = new NormalDinosaur(
@@ -99,6 +121,9 @@ namespace DinoGrr.Core
 
             // Follow the dinosaur's center point
             _camera.Follow(_dino.Points[0]);
+
+            // Reset the parallax background to the initial camera position
+            _parallaxBackground.Reset(_camera.Position);
 
             // Automatically update viewport and camera when window is resized
             Window.ClientSizeChanged += (_, __) =>
@@ -128,9 +153,24 @@ namespace DinoGrr.Core
             _prevKeyboard = _currKeyboard;
             _currKeyboard = Keyboard.GetState();
 
-            if (IsKeyPressed(Keys.J) && _dino.CanJump)
+            // Handle dinosaur jumping
+            if (_dino.CanJump)
             {
-                _dino.Jump();
+                if (IsKeyPressed(Keys.J))
+                {
+                    // Jump straight up
+                    _dino.Jump();
+                }
+                else if (IsKeyPressed(Keys.A) || IsKeyPressed(Keys.Left))
+                {
+                    // Jump left
+                    _dino.JumpLeft();
+                }
+                else if (IsKeyPressed(Keys.D) || IsKeyPressed(Keys.Right))
+                {
+                    // Jump right
+                    _dino.JumpRight();
+                }
             }
 
             // Press N to follow the dinosaur
@@ -148,6 +188,9 @@ namespace DinoGrr.Core
             // Handle user input for camera movement and zoom
             _camera.HandleInput(gameTime);
 
+            // Update the parallax background using the current camera position
+            _parallaxBackground.Update(_camera.Position);
+
             // Advance the physics simulation
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _verletSystem.Update(dt, subSteps: 4); // More iterations = more stable
@@ -163,8 +206,13 @@ namespace DinoGrr.Core
         /// <param name="gameTime">Time snapshot for the current frame.</param>
         protected override void Draw(GameTime gameTime)
         {
-            // Clear screen to black before drawing
+            // Clear screen to white before drawing
             GraphicsDevice.Clear(Color.White);
+
+            // First, draw the parallax background without camera transform
+            _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            _parallaxBackground.Draw(_spriteBatch, _camera);
+            _spriteBatch.End();
 
             // Begin 2D sprite rendering using the camera's transformation matrix
             _spriteBatch.Begin(transformMatrix: _camera.GetMatrix(),

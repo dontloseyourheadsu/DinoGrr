@@ -13,7 +13,7 @@
 
 #---------------------------------- Content ---------------------------------#
 
-#begin Assets/Dinosaurs/dinosaurio_8_1.png
+#begin Assets/Backgrounds/mountains.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -23,9 +23,9 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Assets/Dinosaurs/dinosaurio_8_1.png
+/build:Assets/Backgrounds/mountains.png
 
-#begin Assets/Dinosaurs/dinosaurio_8_1.png
+#begin Assets/Backgrounds/plants-background.png
 /importer:TextureImporter
 /processor:TextureProcessor
 /processorParam:ColorKeyColor=255,0,255,255
@@ -35,7 +35,19 @@
 /processorParam:ResizeToPowerOfTwo=False
 /processorParam:MakeSquare=False
 /processorParam:TextureFormat=Color
-/build:Assets/Dinosaurs/dinosaurio_8_1.png
+/build:Assets/Backgrounds/plants-background.png
+
+#begin Assets/Dinosaurs/polacantus_purple.png
+/importer:TextureImporter
+/processor:TextureProcessor
+/processorParam:ColorKeyColor=255,0,255,255
+/processorParam:ColorKeyEnabled=True
+/processorParam:GenerateMipmaps=False
+/processorParam:PremultiplyAlpha=True
+/processorParam:ResizeToPowerOfTwo=False
+/processorParam:MakeSquare=False
+/processorParam:TextureFormat=Color
+/build:Assets/Dinosaurs/polacantus_purple.png
 
 #begin Assets/Dinosaurs/triceratops_cyan.png
 /importer:TextureImporter
