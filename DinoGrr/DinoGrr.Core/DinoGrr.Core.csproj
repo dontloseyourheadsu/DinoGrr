@@ -14,9 +14,4 @@
       <PrivateAssets>All</PrivateAssets>
     </PackageReference>
   </ItemGroup>
-  <ItemGroup>
-    <Content Include="Content\Assets\Dinosaurs\dinosaurio_8_1.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-  </ItemGroup>
 </Project>

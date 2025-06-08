@@ -63,6 +63,11 @@ public class NormalDinosaur
     public string Name { get; }
 
     /// <summary>
+    /// The horizontal jump force multiplier when jumping left or right.
+    /// </summary>
+    private readonly float _horizontalJumpMultiplier;
+
+    /// <summary>
     /// Creates a new NormalDinosaur instance.
     /// </summary>
     /// <param name="system">The VerletSystem to add the points and springs to.</param>
@@ -80,12 +85,14 @@ public class NormalDinosaur
         float height,
         string name,
         float jumpForce = 2.5f,
+        float horizontalJumpMultiplier = 1.5f,
         float collisionThreshold = 0.5f,
         float stiffness = 0.01f
     )
     {
         _verletSystem = system ?? throw new ArgumentNullException(nameof(system));
         _jumpForce = jumpForce;
+        _horizontalJumpMultiplier = horizontalJumpMultiplier;
         _collisionThreshold = collisionThreshold;
 
         // Set the name of the dinosaur
@@ -160,14 +167,17 @@ public class NormalDinosaur
     /// <summary>
     /// Makes the dinosaur jump if it's allowed to.
     /// </summary>
+    /// <param name="direction">Optional direction: -1 for left, 0 for straight up, 1 for right.</param>
     /// <returns>True if the jump was performed, false otherwise.</returns>
-    public bool Jump()
+    public bool Jump(int direction = 0)
     {
         if (!CanJump)
             return false;
 
-        // Apply an upward impulse instead of a force
-        Vector2 jumpVector = new Vector2(0, -_jumpForce);
+        // Calculate the jump vector based on direction
+        // Direction: -1 = left, 0 = up, 1 = right
+        float horizontalForce = direction * _jumpForce * _horizontalJumpMultiplier;
+        Vector2 jumpVector = new Vector2(horizontalForce, -_jumpForce);
 
         // Apply a stronger impulse to the legs
         LeftLeg.SetVelocity(LeftLeg.GetVelocity() + jumpVector * 0.2f);
@@ -186,6 +196,18 @@ public class NormalDinosaur
         CanJump = false;
         return true;
     }
+
+    /// <summary>
+    /// Makes the dinosaur jump left if it's allowed to.
+    /// </summary>
+    /// <returns>True if the jump was performed, false otherwise.</returns>
+    public bool JumpLeft() => Jump(-1);
+
+    /// <summary>
+    /// Makes the dinosaur jump right if it's allowed to.
+    /// </summary>
+    /// <returns>True if the jump was performed, false otherwise.</returns>
+    public bool JumpRight() => Jump(1);
 
     /// <summary>
     /// Handles collision events for the dinosaur's legs.
