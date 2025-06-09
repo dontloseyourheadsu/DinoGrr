@@ -8,6 +8,7 @@ using DinoGrr.Core.Rendering;
 using DinoGrr.Core.Rendering.Textures;
 using DinoGrr.Core.Rendering.Parallax;
 using DinoGrr.Core.Entities.Dinosaurs;
+using DinoGrr.Core.Entities.Player;
 
 namespace DinoGrr.Core
 {
@@ -29,6 +30,14 @@ namespace DinoGrr.Core
         private NormalDinosaur _dino;
         private DinosaurRenderer _dinoRenderer;
         private Texture2D _dinoTexture;
+
+        // DinoGirl character
+        private DinoGirl _dinoGirl;
+        private DinoGirlRenderer _dinoGirlRenderer;
+        private Texture2D _dinoGirlTexture;
+
+        // Random movement for dinosaur
+        private RandomDinoMover _randomDinoMover;
 
         // Parallax background
         private ParallaxBackground _parallaxBackground;
@@ -78,29 +87,42 @@ namespace DinoGrr.Core
             Circle.Initialize(GraphicsDevice);
             Line.Initialize(GraphicsDevice);
 
+            // Load dinosaur texture
             _dinoTexture = Content.Load<Texture2D>("Assets/Dinosaurs/triceratops_cyan");
 
+            // Load DinoGirl texture (sprite sheet)
+            _dinoGirlTexture = Content.Load<Texture2D>("Assets/DinoGirl/DinoGrr");
+
             // Load background textures
-            // Note: You'll need to add these images to your Content project
             _backgroundLayers = new Texture2D[2];
             _backgroundLayers[0] = Content.Load<Texture2D>("Assets/Backgrounds/mountains"); // Farthest (mountains)
             _backgroundLayers[1] = Content.Load<Texture2D>("Assets/Backgrounds/plants-background"); // Closer (trees)
 
             // Initialize parallax background with different movement factors
-            // Lower values move slower (appear farther away)
             float[] parallaxFactors = { 0.03f, 0.05f };
             Color[] tints = { Color.White, Color.White };
             float[] scales = { 0.8f, 1f };
-            float[] verticalOffsets = { -180f, -120f }; // Adjust this value to move background up
+            float[] verticalOffsets = { -180f, -120f };
             _parallaxBackground.Initialize(_backgroundLayers, parallaxFactors, tints, scales, verticalOffsets);
 
-            // Create the dinosaur
+            // Create the dinosaur (positioned on the left side)
             _dino = new NormalDinosaur(
                 _verletSystem,
-                new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3),
+                new Vector2(VIRTUAL_WIDTH / 4, VIRTUAL_HEIGHT / 3),
                 120, 80,
                 stiffness: 0.005f,
                 name: "Dino");
+
+            // Create DinoGirl (positioned on the right side)
+            _dinoGirl = new DinoGirl(
+                _verletSystem,
+                new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3),
+                100, 180, // Match sprite sheet dimensions
+                stiffness: 0.005f,
+                name: "DinoGirl");
+
+            // Initialize random movement for the dinosaur
+            _randomDinoMover = new RandomDinoMover(_dino);
 
             // Create a trampoline floor at the bottom
             _trampoline = RectangleSoftBodyBuilder.CreateRectangle(
@@ -117,8 +139,8 @@ namespace DinoGrr.Core
             // Set initial camera follow smoothing
             _camera.FollowSmoothing = 0.05f;
 
-            // Follow the dinosaur's center point
-            _camera.Follow(_dino.Points[0]);
+            // Follow the DinoGirl instead of dinosaur
+            _camera.Follow(_dinoGirl.Points[0]);
 
             // Reset the parallax background to the initial camera position
             _parallaxBackground.Reset(_camera.Position);
@@ -133,7 +155,9 @@ namespace DinoGrr.Core
                 _camera.SetViewport(GraphicsDevice.Viewport);
             };
 
+            // Create renderers
             _dinoRenderer = new DinosaurRenderer(GraphicsDevice, _dinoTexture, _dino);
+            _dinoGirlRenderer = new DinoGirlRenderer(GraphicsDevice, _dinoGirlTexture, _dinoGirl);
         }
 
         /// <summary>
@@ -151,30 +175,25 @@ namespace DinoGrr.Core
             _prevKeyboard = _currKeyboard;
             _currKeyboard = Keyboard.GetState();
 
-            // Handle dinosaur jumping
-            if (_dino.CanJump)
-            {
-                if (IsKeyPressed(Keys.J))
-                {
-                    // Jump straight up
-                    _dino.Jump();
-                }
-                else if (IsKeyPressed(Keys.A) || IsKeyPressed(Keys.Left))
-                {
-                    // Jump left
-                    _dino.JumpLeft();
-                }
-                else if (IsKeyPressed(Keys.D) || IsKeyPressed(Keys.Right))
-                {
-                    // Jump right
-                    _dino.JumpRight();
-                }
-            }
+            // Get delta time
+            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
+
+            // Handle DinoGirl movement with arrow keys
+            UpdateDinoGirlMovement();
+
+            // Update random dinosaur movement
+            _randomDinoMover.Update(dt);
 
             // Press N to follow the dinosaur
             if (IsKeyPressed(Keys.N) && _dino.Points.Count > 0)
             {
                 _camera.Follow(_dino.Points[0]);
+            }
+
+            // Press G to follow the DinoGirl
+            if (IsKeyPressed(Keys.G) && _dinoGirl.Points.Count > 0)
+            {
+                _camera.Follow(_dinoGirl.Points[0]);
             }
 
             // Press F key to stop following and return to free camera
@@ -190,12 +209,38 @@ namespace DinoGrr.Core
             _parallaxBackground.Update(_camera.Position);
 
             // Advance the physics simulation
-            float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
             _verletSystem.Update(dt, subSteps: 4); // More iterations = more stable
 
+            // Update renderers
             _dinoRenderer.Update();
+            _dinoGirlRenderer.Update(dt); // Pass dt for animation timing
 
             base.Update(gameTime);
+        }
+
+        /// <summary>
+        /// Handle DinoGirl movement based on arrow key input.
+        /// </summary>
+        private void UpdateDinoGirlMovement()
+        {
+            if (_dinoGirl.CanJump)
+            {
+                if (_currKeyboard.IsKeyDown(Keys.Up))
+                {
+                    // Jump straight up
+                    _dinoGirl.Jump();
+                }
+                else if (_currKeyboard.IsKeyDown(Keys.Left))
+                {
+                    // Jump left
+                    _dinoGirl.JumpLeft();
+                }
+                else if (_currKeyboard.IsKeyDown(Keys.Right))
+                {
+                    // Jump right
+                    _dinoGirl.JumpRight();
+                }
+            }
         }
 
         /// <summary>
@@ -235,9 +280,11 @@ namespace DinoGrr.Core
                     Color.Yellow * 0.5f);
             }
 
-            _dinoRenderer.Draw(_camera);
-
             _spriteBatch.End();
+
+            // Draw the characters with their own SpriteBatch begins/ends
+            _dinoRenderer.Draw(_camera);
+            _dinoGirlRenderer.Draw(_camera);
 
             base.Draw(gameTime);
         }
