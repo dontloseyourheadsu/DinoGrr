@@ -1,5 +1,5 @@
 using System;
-using DinoGrr.Core.Entities;
+using DinoGrr.Core.Entities.Dinosaurs;
 using Microsoft.Xna.Framework.Graphics;
 
 namespace DinoGrr.Core.Rendering.Textures;
