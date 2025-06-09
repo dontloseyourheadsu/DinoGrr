@@ -8,77 +8,77 @@ using Microsoft.Xna.Framework;
 namespace DinoGrr.Core.Entities;
 
 /// <summary>
-/// Represents a normal dinosaur entity in the game.
+/// Represents a ground entity in the game.
 /// </summary>
-public class NormalDinosaur
+public class GroundEntity : IDisposable
 {
     /// <summary>
-    /// Gets whether the dinosaur can currently jump.
+    /// Gets whether the ground entity can currently jump.
     /// </summary>
-    public bool CanJump { get; private set; } = false;
+    public bool CanJump { get; protected set; } = false;
 
     /// <summary>
-    /// Gets the bottom left point (left leg) of the dinosaur.
+    /// Gets the bottom left point (left leg) of the ground entity.
     /// </summary>
-    public VerletPoint LeftLeg { get; private set; }
+    public VerletPoint LeftLeg { get; protected set; }
 
     /// <summary>
-    /// Gets the bottom right point (right leg) of the dinosaur.
+    /// Gets the bottom right point (right leg) of the ground entity.
     /// </summary>
-    public VerletPoint RightLeg { get; private set; }
+    public VerletPoint RightLeg { get; protected set; }
 
     /// <summary>
-    /// Gets the SoftBody that represents the dinosaur's physical body.
+    /// Gets the SoftBody that represents the ground entity's physical body.
     /// </summary>
-    public SoftBody Body { get; private set; }
+    public SoftBody Body { get; protected set; }
 
     /// <summary>
-    /// Gets all points in the dinosaur's body.
+    /// Gets all points in the ground entity's body.
     /// </summary>
     public IReadOnlyList<VerletPoint> Points => Body.Points;
 
     /// <summary>
-    /// Gets all springs in the dinosaur's body.
+    /// Gets all springs in the ground entity's body.
     /// </summary>
     public IReadOnlyList<VerletSpring> Springs => Body.Springs;
 
     /// <summary>
     /// The jump force applied when jumping.
     /// </summary>
-    private readonly float _jumpForce;
+    protected readonly float _jumpForce;
 
     /// <summary>
     /// The minimum collision impulse required to register as a ground collision.
     /// </summary>
-    private readonly float _collisionThreshold;
+    protected readonly float _collisionThreshold;
 
     /// <summary>
     /// Reference to the VerletSystem.
     /// </summary>
-    private readonly VerletSystem _verletSystem;
+    protected readonly VerletSystem _verletSystem;
 
     /// <summary>
-    /// The name of the dinosaur entity.
+    /// The name of the ground entity.
     /// </summary>
     public string Name { get; }
 
     /// <summary>
     /// The horizontal jump force multiplier when jumping left or right.
     /// </summary>
-    private readonly float _horizontalJumpMultiplier;
+    protected readonly float _horizontalJumpMultiplier;
 
     /// <summary>
-    /// Creates a new NormalDinosaur instance.
+    /// Creates a new GroundEntity instance.
     /// </summary>
     /// <param name="system">The VerletSystem to add the points and springs to.</param>
-    /// <param name="position">The center position of the dinosaur.</param>
-    /// <param name="width">The width of the dinosaur.</param>
-    /// <param name="height">The height of the dinosaur.</param>
-    /// <param name="name">The name of the dinosaur.</param>
+    /// <param name="position">The center position of the ground entity.</param>
+    /// <param name="width">The width of the ground entity.</param>
+    /// <param name="height">The height of the ground entity.</param>
+    /// <param name="name">The name of the ground entity.</param>
     /// <param name="jumpForce">The force applied when jumping.</param>
     /// <param name="collisionThreshold">The minimum impulse to register as a ground collision.</param>
     /// <param name="stiffness">The stiffness of the body.</param>
-    public NormalDinosaur(
+    public GroundEntity(
         VerletSystem system,
         Vector2 position,
         float width,
@@ -99,16 +99,16 @@ public class NormalDinosaur
         Name = name ?? throw new ArgumentNullException(nameof(name));
 
         // Create the dinosaur body as a rectangle
-        CreateDinoBody(position, width, height, stiffness);
+        CreateGroundEntityBody(position, width, height, stiffness);
 
         // Subscribe to collision events
         _verletSystem.Collision += OnCollision;
     }
 
     /// <summary>
-    /// Creates the dinosaur body as a rectangle.
+    /// Creates the ground entity body as a rectangle.
     /// </summary>
-    private void CreateDinoBody(Vector2 position, float width, float height, float stiffness)
+    protected void CreateGroundEntityBody(Vector2 position, float width, float height, float stiffness)
     {
         // Create a rectangle soft body
         Body = RectangleSoftBodyBuilder.CreateRectangle(
@@ -165,7 +165,7 @@ public class NormalDinosaur
     }
 
     /// <summary>
-    /// Makes the dinosaur jump if it's allowed to.
+    /// Makes the ground entity jump if it's allowed to.
     /// </summary>
     /// <param name="direction">Optional direction: -1 for left, 0 for straight up, 1 for right.</param>
     /// <returns>True if the jump was performed, false otherwise.</returns>
@@ -198,21 +198,21 @@ public class NormalDinosaur
     }
 
     /// <summary>
-    /// Makes the dinosaur jump left if it's allowed to.
+    /// Makes the ground entity jump left if it's allowed to.
     /// </summary>
     /// <returns>True if the jump was performed, false otherwise.</returns>
     public bool JumpLeft() => Jump(-1);
 
     /// <summary>
-    /// Makes the dinosaur jump right if it's allowed to.
+    /// Makes the ground entity jump right if it's allowed to.
     /// </summary>
     /// <returns>True if the jump was performed, false otherwise.</returns>
     public bool JumpRight() => Jump(1);
 
     /// <summary>
-    /// Handles collision events for the dinosaur's legs.
+    /// Handles collision events for the ground entity's legs.
     /// </summary>
-    private void OnCollision(object sender, CollisionEventArgs e)
+    protected void OnCollision(object sender, CollisionEventArgs e)
     {
         // Check for leg collisions based on collision type
         switch (e.CollisionType)
@@ -234,7 +234,7 @@ public class NormalDinosaur
     /// <summary>
     /// Handles point-to-point collisions.
     /// </summary>
-    private void HandlePointToPointCollision(CollisionEventArgs e)
+    protected void HandlePointToPointCollision(CollisionEventArgs e)
     {
         bool legCollision = e.Point1.Tag == $"{Name}LeftLeg" || e.Point1.Tag == $"{Name}RightLeg" ||
                                   e.Point2.Tag == $"{Name}LeftLeg" || e.Point2.Tag == $"{Name}RightLeg";
@@ -253,7 +253,7 @@ public class NormalDinosaur
     /// Handles point-to-edge collisions.
     /// </summary>
     /// <param name="e">The collision event arguments.</param>
-    private void HandlePointToEdgeCollision(CollisionEventArgs e)
+    protected void HandlePointToEdgeCollision(CollisionEventArgs e)
     {
         // Check if the point is one of our legs
         bool legCollision = e.Point1.Tag == $"{Name}LeftLeg" || e.Point1.Tag == $"{Name}RightLeg";
@@ -274,7 +274,7 @@ public class NormalDinosaur
     /// <summary>
     /// Handles softbody overlap collisions.
     /// </summary>
-    private void HandleSoftBodyOverlapCollision(CollisionEventArgs e)
+    protected void HandleSoftBodyOverlapCollision(CollisionEventArgs e)
     {
         // Check if our body is involved in the collision
         if (e.SoftBody1.Tag == Body.Tag || e.SoftBody2.Tag == Body.Tag)
@@ -284,7 +284,7 @@ public class NormalDinosaur
     }
 
     /// <summary>
-    /// Cleans up event handlers when the dinosaur is no longer needed.
+    /// Cleans up event handlers when the ground entity is no longer needed.
     /// </summary>
     public void Dispose()
     {

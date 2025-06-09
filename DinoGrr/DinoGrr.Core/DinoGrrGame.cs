@@ -1,15 +1,13 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
-using Microsoft.Xna.Framework.Input.Touch;
 using DinoGrr.Core.Physics;
-using System;
 using Color = Microsoft.Xna.Framework.Color;
 using DinoGrr.Core.Builders;
-using DinoGrr.Core.Entities;
 using DinoGrr.Core.Rendering;
 using DinoGrr.Core.Rendering.Textures;
 using DinoGrr.Core.Rendering.Parallax;
+using DinoGrr.Core.Entities.Dinosaurs;
 
 namespace DinoGrr.Core
 {
