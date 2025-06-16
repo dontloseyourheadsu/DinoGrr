@@ -223,22 +223,42 @@ namespace DinoGrr.Core
         /// </summary>
         private void UpdateDinoGirlMovement()
         {
+            // Stop walking by default - we'll set it to true if needed
+            _dinoGirl.StopWalking();
+
+            // Handle walking and jumping
+            // Handle left/right movement
+            bool isMovingLeft = _currKeyboard.IsKeyDown(Keys.Left);
+            bool isMovingRight = _currKeyboard.IsKeyDown(Keys.Right);
+            bool isJumping = _currKeyboard.IsKeyDown(Keys.Up);
+
             if (_dinoGirl.CanJump)
             {
-                if (_currKeyboard.IsKeyDown(Keys.Up))
+                // If the up key is pressed, jump
+                if (isJumping)
                 {
-                    // Jump straight up
-                    _dinoGirl.Jump();
+                    // Jump in the direction being pressed, or straight up if no direction
+                    if (isMovingLeft)
+                    {
+                        _dinoGirl.JumpLeft();
+                    }
+                    else if (isMovingRight)
+                    {
+                        _dinoGirl.JumpRight();
+                    }
+                    else
+                    {
+                        _dinoGirl.Jump();
+                    }
                 }
-                else if (_currKeyboard.IsKeyDown(Keys.Left))
+                // Otherwise, walk if left/right keys are pressed
+                else if (isMovingLeft)
                 {
-                    // Jump left
-                    _dinoGirl.JumpLeft();
+                    _dinoGirl.WalkLeft();
                 }
-                else if (_currKeyboard.IsKeyDown(Keys.Right))
+                else if (isMovingRight)
                 {
-                    // Jump right
-                    _dinoGirl.JumpRight();
+                    _dinoGirl.WalkRight();
                 }
             }
         }

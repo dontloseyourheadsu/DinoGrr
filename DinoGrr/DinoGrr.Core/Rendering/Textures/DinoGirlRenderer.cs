@@ -18,10 +18,13 @@ namespace DinoGrr.Core.Rendering.Textures
 
         // Animation state
         private DinoGirlAnimation _currentAnimation;
+        private DinoGirlAnimation _previousAnimation;
         private int _currentFrame;
         private float _timeSinceLastFrame;
         private float _frameTime;
         private bool _facingLeft;
+        private float _transitionTime = 0.0f;
+        private const float TRANSITION_DURATION = 0.15f; // Time in seconds for animation transitions
 
         // Animation frame dimensions
         private const int FRAME_WIDTH = 100;
@@ -53,10 +56,12 @@ namespace DinoGrr.Core.Rendering.Textures
 
             // Initialize animation state
             _currentAnimation = DinoGirlAnimation.Idle;
+            _previousAnimation = DinoGirlAnimation.Idle; // Start with no transition
             _currentFrame = 0;
             _timeSinceLastFrame = 0;
-            _frameTime = 0.1f; // Animation speed (seconds per frame)
+            _frameTime = 0.1f; // Default animation speed (seconds per frame)
             _facingLeft = false;
+            _transitionTime = 0.0f;
 
             // Set initial animation frame
             UpdateSourceRectangle();
@@ -81,25 +86,51 @@ namespace DinoGrr.Core.Rendering.Textures
             {
                 // In the air - use Hit animation as jumping
                 SetAnimation(DinoGirlAnimation.Hit);
+
+                // Maintain facing direction while jumping
+                _facingLeft = _dinoGirl.FacingLeft;
+                _texturedMesh.SetFlip(_facingLeft);
+
+                // Reset to default animation speed
+                _frameTime = 0.1f;
+            }
+            else if (_dinoGirl.IsWalking)
+            {
+                // Using the IsWalking property from DinoGirl
+                SetAnimation(DinoGirlAnimation.Running);
+
+                // Use the FacingLeft property from DinoGirl for direction
+                _facingLeft = _dinoGirl.FacingLeft;
+
+                // Apply the flip to the textured mesh
+                _texturedMesh.SetFlip(_facingLeft);
+
+                // Adjust animation speed based on movement speed
+                // Faster movement = faster animation (within reasonable limits)
+                float baseFrameTime = 0.1f;
+                float normalizedSpeed = _dinoGirl.WalkSpeed / 1.5f; // Normalize relative to default walk speed
+                float speedFactor = 1.0f / normalizedSpeed;
+                _frameTime = MathHelper.Clamp(baseFrameTime * speedFactor, 0.05f, 0.15f);
             }
             else
             {
-                // Check if moving horizontally
-                float xDiff = center.X - _lastPosition.X;
+                // Not moving - idle animation (first frame of Hit animation)
+                SetAnimation(DinoGirlAnimation.Idle);
 
-                if (Math.Abs(xDiff) > 0.5f)
-                {
-                    // Moving horizontally - run animation
-                    SetAnimation(DinoGirlAnimation.Running);
+                // Maintain the facing direction even when idle
+                _facingLeft = _dinoGirl.FacingLeft;
 
-                    // Update facing direction based on movement
-                    _facingLeft = xDiff < 0;
-                }
-                else
-                {
-                    // Not moving - idle animation (first frame of Hit animation)
-                    SetAnimation(DinoGirlAnimation.Idle);
-                }
+                // Apply the flip to the textured mesh
+                _texturedMesh.SetFlip(_facingLeft);
+
+                // Reset to default animation speed for idle
+                _frameTime = 0.1f;
+            }
+
+            // Update animation transitions
+            if (_transitionTime < TRANSITION_DURATION)
+            {
+                _transitionTime += deltaTime;
             }
 
             // Update animation frames
@@ -111,7 +142,39 @@ namespace DinoGrr.Core.Rendering.Textures
                 // Only advance frames if not idle
                 if (_currentAnimation != DinoGirlAnimation.Idle)
                 {
-                    _currentFrame = (_currentFrame + 1) % FRAMES_PER_ANIMATION;
+                    // Calculate new frame with a smooth transition when changing animations
+                    if (_transitionTime < TRANSITION_DURATION)
+                    {
+                        // During transition, adjust frame advancement speed based on the animation types
+                        float transitionFactor = _transitionTime / TRANSITION_DURATION;
+
+                        // Smooth incremental advancement during transitions
+                        if ((_previousAnimation == DinoGirlAnimation.Running && _currentAnimation == DinoGirlAnimation.Hit) ||
+                            (_previousAnimation == DinoGirlAnimation.Hit && _currentAnimation == DinoGirlAnimation.Running))
+                        {
+                            // For transitions between Run and Hit (or vice versa), slow down the animation slightly
+                            if (transitionFactor < 0.5f)
+                            {
+                                // First half of transition - pause briefly
+                                // Do nothing here, keeping the frame the same
+                            }
+                            else
+                            {
+                                // Second half - advance normally
+                                _currentFrame = (_currentFrame + 1) % FRAMES_PER_ANIMATION;
+                            }
+                        }
+                        else
+                        {
+                            // For other transitions, proceed normally
+                            _currentFrame = (_currentFrame + 1) % FRAMES_PER_ANIMATION;
+                        }
+                    }
+                    else
+                    {
+                        // Normal animation (no transition)
+                        _currentFrame = (_currentFrame + 1) % FRAMES_PER_ANIMATION;
+                    }
                 }
 
                 UpdateSourceRectangle();
@@ -129,7 +192,12 @@ namespace DinoGrr.Core.Rendering.Textures
         {
             if (_currentAnimation != animation)
             {
+                // Track previous animation for transition effects
+                _previousAnimation = _currentAnimation;
                 _currentAnimation = animation;
+
+                // Start transition timer
+                _transitionTime = 0.0f;
 
                 // Reset frame for new animation, except for idle which uses a specific frame
                 if (animation != DinoGirlAnimation.Idle)

@@ -20,6 +20,9 @@ public class TexturedSoftBodyMesh
     // Default to using the entire texture
     private bool _useSourceRectangle = false;
 
+    // Sprite direction properties
+    private bool _flipHorizontally = false;
+
     /// <summary>
     /// Initializes a new instance of the TexturedSoftBodyMesh class.
     /// </summary>
@@ -56,6 +59,15 @@ public class TexturedSoftBodyMesh
     }
 
     /// <summary>
+    /// Sets whether the sprite should be flipped horizontally.
+    /// </summary>
+    /// <param name="flip">True to flip horizontally, false otherwise.</param>
+    public void SetFlip(bool flip)
+    {
+        _flipHorizontally = flip;
+    }
+
+    /// <summary>
     /// Draws the textured mesh using the specified camera.
     /// </summary>
     /// <param name="camera">The camera to use for rendering.</param>
@@ -88,7 +100,7 @@ public class TexturedSoftBodyMesh
             new Vector2(                           // Scale to match soft body size
                 width / _sourceRectangle.Width,
                 height / _sourceRectangle.Height),
-            SpriteEffects.None,                    // No sprite effects
+            _flipHorizontally ? SpriteEffects.FlipHorizontally : SpriteEffects.None, // Flip sprite if needed
             0f);                                   // Layer depth
 
         _spriteBatch.End();
