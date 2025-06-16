@@ -128,8 +128,8 @@ namespace DinoGrr.Core
             _trampoline = RectangleSoftBodyBuilder.CreateRectangle(
                 _verletSystem,
                 new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT - 100),
-                300, 20,
-                0,
+                width: 500, height: 50,
+                angle: 0,
                 pinTop: true,  // Pin the top corners of the trampoline
                 stiffness: 0.005f);
 

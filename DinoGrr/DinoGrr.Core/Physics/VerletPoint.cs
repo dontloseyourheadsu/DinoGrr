@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using System;
 
 namespace DinoGrr.Core.Physics;
 
@@ -118,14 +119,17 @@ public class VerletPoint
     /// <param name="width">Screen width.</param>
     /// <param name="height">Screen height.</param>
     /// <param name="bounceFactor">Bounce factor (0.0 to 1.0).</param>
-    public void ConstrainToBounds(float width, float height, float bounceFactor = 0.8f)
+    /// <returns>True if the point collided with a boundary, false otherwise.</returns>
+    public bool ConstrainToBounds(float width, float height, float bounceFactor = 0.8f)
     {
         if (IsFixed)
-            return;
+            return false;
 
         Vector2 velocity = Position - PreviousPosition;
         Vector2 newVelocity = velocity;
         bool collided = false;
+        Vector2 normal = Vector2.Zero;
+        float impulseMagnitude = 0;
 
         // Horizontal bounds
         if (Position.X < Radius)
@@ -133,12 +137,16 @@ public class VerletPoint
             Position = new Vector2(Radius, Position.Y);
             newVelocity.X = -velocity.X * bounceFactor;
             collided = true;
+            normal = new Vector2(1, 0); // Right-facing normal
+            impulseMagnitude = MathF.Abs(velocity.X) * Mass;
         }
         else if (Position.X > width - Radius)
         {
             Position = new Vector2(width - Radius, Position.Y);
             newVelocity.X = -velocity.X * bounceFactor;
             collided = true;
+            normal = new Vector2(-1, 0); // Left-facing normal
+            impulseMagnitude = MathF.Abs(velocity.X) * Mass;
         }
 
         // Vertical bounds
@@ -147,16 +155,21 @@ public class VerletPoint
             Position = new Vector2(Position.X, Radius);
             newVelocity.Y = -velocity.Y * bounceFactor;
             collided = true;
+            normal = new Vector2(0, 1); // Down-facing normal
+            impulseMagnitude = MathF.Abs(velocity.Y) * Mass;
         }
         else if (Position.Y > height - Radius)
         {
             Position = new Vector2(Position.X, height - Radius);
             newVelocity.Y = -velocity.Y * bounceFactor;
             collided = true;
+            normal = new Vector2(0, -1); // Up-facing normal (for ground collision)
+            impulseMagnitude = MathF.Abs(velocity.Y) * Mass;
         }
 
         if (collided)
         {
+            // Update position and velocity
             PreviousPosition = Position - newVelocity;
 
             // Add floor friction
@@ -166,7 +179,26 @@ public class VerletPoint
                 Vector2 horizontalVelocity = new Vector2(newVelocity.X * frictionFactor, newVelocity.Y);
                 PreviousPosition = Position - horizontalVelocity;
             }
+
+            // Notify the owner SoftBody (if any) about this boundary collision
+            if (OwnerSoftBody != null)
+            {
+                // The edge is represented by two fixed points at the boundary
+                // We'll create temporary fixed points to represent the boundary edge
+                VerletPoint boundaryPoint1 = new VerletPoint(
+                    normal.X != 0 ? Position : new Vector2(Position.X - 50, Position.Y),
+                    Radius, float.MaxValue, Color.White, true);
+
+                VerletPoint boundaryPoint2 = new VerletPoint(
+                    normal.X != 0 ? Position + new Vector2(0, 100) : new Vector2(Position.X + 50, Position.Y),
+                    Radius, float.MaxValue, Color.White, true);
+
+                // For now we won't directly fire events from the point
+                // Instead, we'll use the return value to indicate a collision occurred
+            }
         }
+
+        return collided;
     }
 
     /// <summary>
