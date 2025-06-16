@@ -169,7 +169,7 @@ public class GroundEntity : IDisposable
     /// </summary>
     /// <param name="direction">Optional direction: -1 for left, 0 for straight up, 1 for right.</param>
     /// <returns>True if the jump was performed, false otherwise.</returns>
-    public bool Jump(int direction = 0)
+    public virtual bool Jump(int direction = 0)
     {
         if (!CanJump)
             return false;
@@ -201,13 +201,13 @@ public class GroundEntity : IDisposable
     /// Makes the ground entity jump left if it's allowed to.
     /// </summary>
     /// <returns>True if the jump was performed, false otherwise.</returns>
-    public bool JumpLeft() => Jump(-1);
+    public virtual bool JumpLeft() => Jump(-1);
 
     /// <summary>
     /// Makes the ground entity jump right if it's allowed to.
     /// </summary>
     /// <returns>True if the jump was performed, false otherwise.</returns>
-    public bool JumpRight() => Jump(1);
+    public virtual bool JumpRight() => Jump(1);
 
     /// <summary>
     /// Handles collision events for the ground entity's legs.
