@@ -114,9 +114,13 @@ public class VerletSystem
             ApplyForces();
             UpdatePoints(subDeltaTime);
             SatisfySprings();
-            ApplyConstraints();
+
+            // First resolve collisions between points
             ResolveCollisions();
             ResolveSoftBodyCollisions();
+
+            // Then apply constraints which may generate additional collisions
+            ApplyConstraints();
         }
     }
 
@@ -175,12 +179,17 @@ public class VerletSystem
                     Vector2 relativeVelocity = v2 - v1;
                     float velocityAlongNormal = Vector2.Dot(relativeVelocity, direction);
 
+                    // Calculate impulse magnitude regardless of whether we're going to apply impulse
+                    float restitution = _dampingFactor;
+                    float impulseMagnitude = -(1.0f + restitution) * velocityAlongNormal;
+                    impulseMagnitude /= (1.0f / p1.Mass) + (1.0f / p2.Mass);
+
+                    // Always fire the collision event, even for fixed points
+                    // This allows ground entities to detect collisions with fixed objects
+                    Collision?.Invoke(this, new CollisionEventArgs(p1, p2, direction, MathF.Abs(impulseMagnitude)));
+
                     if (velocityAlongNormal < 0)
                     {
-                        float restitution = _dampingFactor;
-                        float impulseMagnitude = -(1.0f + restitution) * velocityAlongNormal;
-                        impulseMagnitude /= (1.0f / p1.Mass) + (1.0f / p2.Mass);
-
                         Vector2 impulse = direction * impulseMagnitude;
 
                         // Apply collision response
@@ -195,9 +204,6 @@ public class VerletSystem
                             p2.Position += direction * overlap * p2Factor;
                             p2.AdjustVelocity(impulse / p2.Mass);
                         }
-
-                        // Fire the collision event
-                        Collision?.Invoke(this, new CollisionEventArgs(p1, p2, direction, impulseMagnitude));
                     }
                     else
                     {
@@ -219,7 +225,35 @@ public class VerletSystem
     {
         foreach (var point in _points)
         {
-            point.ConstrainToBounds(_bounds.Width, _bounds.Height, _dampingFactor);
+            bool collided = point.ConstrainToBounds(_bounds.Width, _bounds.Height, _dampingFactor);
+
+            // If this point belongs to a softbody and collided with a boundary, fire a collision event
+            if (collided && point.OwnerSoftBody != null)
+            {
+                // Determine which boundary was hit by checking position against bounds
+                Vector2 normal = Vector2.Zero;
+                float impulseMagnitude = 0;
+
+                if (point.Position.Y >= _bounds.Height - point.Radius)
+                {
+                    // Ground collision
+                    normal = new Vector2(0, -1);
+                    impulseMagnitude = point.GetVelocity().Length() * point.Mass;
+
+                    // Create temp points to represent the ground (without setting owner)
+                    VerletPoint groundPoint1 = new VerletPoint(
+                        new Vector2(point.Position.X - 50, _bounds.Height),
+                        point.Radius, float.MaxValue, Color.White, true);
+
+                    VerletPoint groundPoint2 = new VerletPoint(
+                        new Vector2(point.Position.X + 50, _bounds.Height),
+                        point.Radius, float.MaxValue, Color.White, true);
+
+                    // Fire collision event for ground
+                    Collision?.Invoke(this, new Events.CollisionEventArgs(
+                        point, groundPoint1, groundPoint2, normal, impulseMagnitude));
+                }
+            }
         }
     }
 
@@ -467,9 +501,6 @@ public class VerletSystem
     /// </summary>
     private void HandlePointEdgeCollision(VerletPoint point, VerletPoint edgeStart, VerletPoint edgeEnd)
     {
-        // Skip if point is fixed
-        if (point.IsFixed) return;
-
         // Calculate closest point on line segment
         Vector2 edge = edgeEnd.Position - edgeStart.Position;
         float edgeLength = edge.Length();
@@ -512,12 +543,21 @@ public class VerletSystem
         float pointResponse = edgePointMass / totalMass;
         float edgeResponse = point.Mass / totalMass;
 
-        // Apply position correction to point
+        // Store original position for impulse calculation
         Vector2 originalPosition = point.Position;
-        point.Position += normal * penetration * pointResponse;
+        float impulseMagnitude = 0;
 
-        // Get approximate impulse based on position change
-        float impulseMagnitude = (point.Position - originalPosition).Length() * point.Mass * 0.5f;
+        // Apply position correction to point if it's not fixed
+        if (!point.IsFixed)
+        {
+            point.Position += normal * penetration * pointResponse;
+            impulseMagnitude = (point.Position - originalPosition).Length() * point.Mass * 0.5f;
+        }
+        else
+        {
+            // For fixed points, still calculate an impulse for collision detection
+            impulseMagnitude = penetration * point.Mass * 0.5f;
+        }
 
         // Distribute correction to edge points based on projection
         if (!edgeStart.IsFixed && !edgeEnd.IsFixed)
@@ -539,7 +579,7 @@ public class VerletSystem
             edgeEnd.Position -= normal * penetration * edgeResponse;
         }
 
-        // Fire the collision event
+        // Always fire the collision event, even for fixed points
         Collision?.Invoke(this, new CollisionEventArgs(point, edgeStart, edgeEnd, normal, impulseMagnitude));
     }
 

@@ -259,13 +259,26 @@ public class GroundEntity : IDisposable
         bool legCollision = e.Point1.Tag == $"{Name}LeftLeg" || e.Point1.Tag == $"{Name}RightLeg";
 
         // Check if our legs are part of the edge
-        bool legInEdge = e.EdgeStart.Tag == $"{Name}LeftLeg" || e.EdgeStart.Tag == $"{Name}RightLeg" ||
-                         e.EdgeEnd.Tag == $"{Name}LeftLeg" || e.EdgeEnd.Tag == $"{Name}RightLeg";
+        bool legInEdge = e.EdgeStart?.Tag == $"{Name}LeftLeg" || e.EdgeStart?.Tag == $"{Name}RightLeg" ||
+                         e.EdgeEnd?.Tag == $"{Name}LeftLeg" || e.EdgeEnd?.Tag == $"{Name}RightLeg";
 
-        bool isGroundCollision = e.Normal.Y < 0 && e.ImpulseMagnitude > _collisionThreshold;
+        // Check if this is a collision with the ground
+        // For ground collisions, the normal Y component will be negative (pointing upward)
+        bool isGroundCollision = e.Normal.Y < -0.5f && e.ImpulseMagnitude > _collisionThreshold;
+
+        // Check if the point is at the bottom of the screen (likely a ground collision)
+        bool legHitGround = false;
+        if (legCollision && e.Point1 != null)
+        {
+            // If a leg is very close to the bottom of the screen, it's probably a ground collision
+            if (e.Point1 == LeftLeg || e.Point1 == RightLeg)
+            {
+                legHitGround = true;
+            }
+        }
 
         // Allow jumping if a leg collided with the ground (either as the point or as part of the edge)
-        if (legCollision || legInEdge || isGroundCollision)
+        if ((legCollision && isGroundCollision) || (legInEdge && isGroundCollision) || legHitGround)
         {
             CanJump = true;
         }

@@ -69,7 +69,8 @@ public static class RectangleSoftBodyBuilder
                 radius,
                 mass,
                 Color.Orange,
-                pinTop && corners[i].Y < position.Y)); // optional pins
+                //                pinTop && corners[i].Y < position.Y)); // optional pins
+                isFixed: pinTop));
         }
 
         /* structural edges */
