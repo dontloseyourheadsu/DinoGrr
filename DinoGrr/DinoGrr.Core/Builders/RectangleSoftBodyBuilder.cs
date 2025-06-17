@@ -31,9 +31,10 @@ public static class RectangleSoftBodyBuilder
         float edgeStiffness = .9f, // ⇦ stiffer outside
         float shearStiffness = .4f, // ⇦ looser inside
         bool pinTop = false,
-        float stiffness = 0.01f)
+        float stiffness = 0.01f,
+        float? maxSpeed = null)
     {
-        var sb = new SoftBody(vs, stiffness); // Using the new stiffness parameter here
+        var sb = new SoftBody(vs, stiffness, maxSpeed); // Pass the maxSpeed parameter
 
         // Calculate corner positions with rotation
         var corners = new Vector2[4];
@@ -64,13 +65,15 @@ public static class RectangleSoftBodyBuilder
             corners[i] = new Vector2(rotatedX, rotatedY) + position;
 
             // Create the verlet point
-            sb._pts.Add(vs.CreatePoint(
+            var point = vs.CreatePoint(
                 corners[i],
                 radius,
                 mass,
                 Color.Orange,
-                //                pinTop && corners[i].Y < position.Y)); // optional pins
-                isFixed: pinTop));
+                isFixed: pinTop);
+
+            // Add the point using our new method that applies speed limits
+            sb.AddPoint(point);
         }
 
         /* structural edges */

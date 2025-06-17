@@ -50,13 +50,30 @@ public sealed class SoftBody
     /// </summary>
     /// <param name="system">The VerletSystem to add the points and springs to.</param>
     /// <param name="localStiffness">0 – 1 factor multiplied into every spring.</param>
-    public SoftBody(VerletSystem system, float localStiffness)
+    /// <param name="maxSpeed">Optional maximum speed limit for all points in this soft body. If null, no limit is applied.</param>
+    public SoftBody(VerletSystem system, float localStiffness, float? maxSpeed = null)
     {
         _vs = system ?? throw new ArgumentNullException(nameof(system));
         _localStiff = MathHelper.Clamp(localStiffness, 0, 1);
+        _maxSpeed = maxSpeed;
 
         // Register this softbody with the VerletSystem
         _vs.RegisterSoftBody(this);
+    }
+
+    /// <summary>
+    /// When a point is added to this soft body, apply the speed limit.
+    /// </summary>
+    public void AddPoint(VerletPoint point)
+    {
+        _pts.Add(point);
+        point.OwnerSoftBody = this;
+
+        // Apply speed limit if one is set
+        if (_maxSpeed.HasValue)
+        {
+            point.MaxSpeed = _maxSpeed;
+        }
     }
 
     // Add this method to SoftBody:
@@ -68,6 +85,36 @@ public sealed class SoftBody
         foreach (var point in _pts)
         {
             point.OwnerSoftBody = this;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the maximum allowed speed for all points in this soft body.
+    /// If null, no speed limit is applied. Setting this will apply to all points in the body.
+    /// </summary>
+    public float? MaxSpeed
+    {
+        get => _maxSpeed;
+        set
+        {
+            _maxSpeed = value;
+            ApplySpeedLimitToAllPoints();
+        }
+    }
+
+    /// <summary>
+    /// Internal storage for MaxSpeed.
+    /// </summary>
+    private float? _maxSpeed = null;
+
+    /// <summary>
+    /// Applies the current speed limit setting to all points in this soft body.
+    /// </summary>
+    public void ApplySpeedLimitToAllPoints()
+    {
+        foreach (var point in _pts)
+        {
+            point.MaxSpeed = _maxSpeed;
         }
     }
 }

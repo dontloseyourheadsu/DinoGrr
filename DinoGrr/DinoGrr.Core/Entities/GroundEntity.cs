@@ -87,7 +87,8 @@ public class GroundEntity : IDisposable
         float jumpForce = 2.5f,
         float horizontalJumpMultiplier = 1.5f,
         float collisionThreshold = 0.5f,
-        float stiffness = 0.01f
+        float stiffness = 0.01f,
+        float? maxSpeed = null
     )
     {
         _verletSystem = system ?? throw new ArgumentNullException(nameof(system));
@@ -99,7 +100,7 @@ public class GroundEntity : IDisposable
         Name = name ?? throw new ArgumentNullException(nameof(name));
 
         // Create the dinosaur body as a rectangle
-        CreateGroundEntityBody(position, width, height, stiffness);
+        CreateGroundEntityBody(position, width, height, stiffness, maxSpeed);
 
         // Subscribe to collision events
         _verletSystem.Collision += OnCollision;
@@ -108,7 +109,7 @@ public class GroundEntity : IDisposable
     /// <summary>
     /// Creates the ground entity body as a rectangle.
     /// </summary>
-    protected void CreateGroundEntityBody(Vector2 position, float width, float height, float stiffness)
+    protected void CreateGroundEntityBody(Vector2 position, float width, float height, float stiffness, float? maxSpeed = null)
     {
         // Create a rectangle soft body
         Body = RectangleSoftBodyBuilder.CreateRectangle(
@@ -122,7 +123,8 @@ public class GroundEntity : IDisposable
             edgeStiffness: 0.9f,
             shearStiffness: 0.1f,
             pinTop: false,
-            stiffness: stiffness
+            stiffness: stiffness,
+            maxSpeed: maxSpeed
         );
 
         // Set this SoftBody as the owner for all its points
@@ -293,6 +295,18 @@ public class GroundEntity : IDisposable
         if (e.SoftBody1.Tag == Body.Tag || e.SoftBody2.Tag == Body.Tag)
         {
             CanJump = true;
+        }
+    }
+
+    /// <summary>
+    /// Sets or updates the maximum speed limit for this entity.
+    /// </summary>
+    /// <param name="maxSpeed">The new maximum speed limit, or null to remove the limit.</param>
+    public void SetMaxSpeed(float? maxSpeed)
+    {
+        if (Body != null)
+        {
+            Body.MaxSpeed = maxSpeed;
         }
     }
 
