@@ -111,7 +111,7 @@ namespace DinoGrr.Core
                 new Vector2(VIRTUAL_WIDTH / 4, VIRTUAL_HEIGHT / 3),
                 120, 80,
                 stiffness: 0.005f,
-                name: "Dino");
+                name: "Dino"); // Set a lower speed limit for the dinosaur
 
             // Create DinoGirl (positioned on the right side)
             _dinoGirl = new DinoGirl(
@@ -119,7 +119,8 @@ namespace DinoGrr.Core
                 new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3),
                 100, 180, // Match sprite sheet dimensions
                 stiffness: 0.005f,
-                name: "DinoGirl");
+                name: "DinoGirl",
+                maxSpeed: 1f); // Set a maximum speed limit for DinoGirl
 
             // Initialize random movement for the dinosaur
             _randomDinoMover = new RandomDinoMover(_dino);
@@ -131,7 +132,8 @@ namespace DinoGrr.Core
                 width: 500, height: 50,
                 angle: 0,
                 pinTop: true,  // Pin the top corners of the trampoline
-                stiffness: 0.005f);
+                stiffness: 0.005f,
+                maxSpeed: 10.0f); // Set a higher speed limit for the trampoline for bouncier effects
 
             // Initialize the camera with current viewport and virtual size
             _camera = new Camera2D(GraphicsDevice.Viewport, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);

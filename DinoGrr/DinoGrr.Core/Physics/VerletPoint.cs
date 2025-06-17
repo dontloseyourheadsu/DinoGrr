@@ -55,6 +55,11 @@ public class VerletPoint
     public string Tag { get; set; } = string.Empty;
 
     /// <summary>
+    /// Optional maximum speed limit for this point. If null, no speed limit is applied.
+    /// </summary>
+    public float? MaxSpeed { get; set; } = null;
+
+    /// <summary>
     /// Creates a new Verlet point with the specified parameters.
     /// </summary>
     /// <param name="position">Initial position.</param>
@@ -84,6 +89,14 @@ public class VerletPoint
 
         Vector2 temp = Position;
         Vector2 velocity = Position - PreviousPosition;
+
+        // Apply speed limit if one is set
+        if (MaxSpeed.HasValue && velocity.Length() > MaxSpeed.Value)
+        {
+            velocity = Vector2.Normalize(velocity) * MaxSpeed.Value;
+            PreviousPosition = Position - velocity; // Update previous position to reflect limited velocity
+        }
+
         Position = Position + velocity + Acceleration * deltaTime * deltaTime;
         PreviousPosition = temp;
         Acceleration = Vector2.Zero;
@@ -207,7 +220,19 @@ public class VerletPoint
     /// <returns>Velocity vector.</returns>
     public Vector2 GetVelocity()
     {
-        return Position - PreviousPosition;
+        Vector2 velocity = Position - PreviousPosition;
+
+        // Apply speed limit if one is set
+        if (MaxSpeed.HasValue && velocity.Length() > MaxSpeed.Value)
+        {
+            // Normalize and scale to max speed while preserving direction
+            velocity = Vector2.Normalize(velocity) * MaxSpeed.Value;
+
+            // Update previous position to reflect the limited speed
+            PreviousPosition = Position - velocity;
+        }
+
+        return velocity;
     }
 
     /// <summary>
@@ -218,6 +243,13 @@ public class VerletPoint
     {
         if (IsFixed)
             return;
+
+        // Apply speed limit if one is set
+        if (MaxSpeed.HasValue && velocity.Length() > MaxSpeed.Value)
+        {
+            // Normalize and scale to max speed while preserving direction
+            velocity = Vector2.Normalize(velocity) * MaxSpeed.Value;
+        }
 
         PreviousPosition = Position - velocity;
     }
