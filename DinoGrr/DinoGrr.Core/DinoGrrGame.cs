@@ -102,8 +102,11 @@ namespace DinoGrr.Core
             float[] parallaxFactors = { 0.03f, 0.05f };
             Color[] tints = { Color.White, Color.White };
             float[] scales = { 0.8f, 1f };
-            float[] verticalOffsets = { -180f, -120f };
+            float[] verticalOffsets = { 0f, 50f }; // Further adjusted for higher positioning
             _parallaxBackground.Initialize(_backgroundLayers, parallaxFactors, tints, scales, verticalOffsets);
+
+            // Set a very smooth value for parallax - this will make it much less 'bouncy'
+            _parallaxBackground.SmoothingFactor = 0.01f;
 
             // Create the dinosaur (positioned on the left side)
             _dino = new NormalDinosaur(
@@ -144,8 +147,8 @@ namespace DinoGrr.Core
             // Follow the DinoGirl instead of dinosaur
             _camera.Follow(_dinoGirl.Points[0]);
 
-            // Reset the parallax background to the initial camera position
-            _parallaxBackground.Reset(_camera.Position);
+            // Reset the parallax background to the initial DinoGirl position
+            _parallaxBackground.Reset(_dinoGirl.Points[0].Position);
 
             // Automatically update viewport and camera when window is resized
             Window.ClientSizeChanged += (_, __) =>
@@ -207,8 +210,11 @@ namespace DinoGrr.Core
             // Handle user input for camera movement and zoom
             _camera.HandleInput(gameTime);
 
-            // Update the parallax background using the current camera position
-            _parallaxBackground.Update(_camera.Position);
+            // Update the parallax background using DinoGirl's position for traditional parallax effect
+            if (_dinoGirl.Points.Count > 0)
+            {
+                _parallaxBackground.Update(_dinoGirl.Points[0].Position);
+            }
 
             // Advance the physics simulation
             _verletSystem.Update(dt, subSteps: 4); // More iterations = more stable

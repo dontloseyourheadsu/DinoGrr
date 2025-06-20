@@ -57,7 +57,7 @@ public class VerletSystem
     public VerletSystem(int screenWidth, int screenHeight, Vector2? gravity = null, float dampingFactor = 0.1f)
     {
         this._points = new List<VerletPoint>();
-        this._gravity = gravity ?? new Vector2(0, 9.8f * 11);
+        this._gravity = gravity ?? new Vector2(0, 9.8f * 15);
         this._bounds = new RectangleF(0, 0, screenWidth, screenHeight);
         this._dampingFactor = MathHelper.Clamp(dampingFactor, 0.0f, 1.0f);
     }

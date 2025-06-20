@@ -35,6 +35,23 @@ public class ParallaxBackground
     private readonly int _virtualHeight;
     private Vector2 _lastCameraPosition;
 
+    // Smoothed position for parallax effect
+    private Vector2 _smoothedPosition = Vector2.Zero;
+
+    // How quickly the smoothed position moves toward the target position (0-1)
+    // Lower values create smoother, more dampened movement
+    private float _smoothingFactor = 0.05f;
+
+    /// <summary>
+    /// Gets or sets how quickly the background moves toward the target position (0-1).
+    /// Lower values create smoother, more dampened movement.
+    /// </summary>
+    public float SmoothingFactor
+    {
+        get => _smoothingFactor;
+        set => _smoothingFactor = MathHelper.Clamp(value, 0.001f, 1f);
+    }
+
     /// <summary>
     /// Creates a new parallax background system with specified layers.
     /// </summary>
@@ -45,6 +62,7 @@ public class ParallaxBackground
         _virtualWidth = virtualWidth;
         _virtualHeight = virtualHeight;
         _lastCameraPosition = Vector2.Zero;
+        _smoothedPosition = Vector2.Zero;
     }
 
     /// <summary>
@@ -73,79 +91,142 @@ public class ParallaxBackground
     }
 
     /// <summary>
-    /// Updates the position of each parallax layer based on camera movement.
+    /// Updates the position of each parallax layer based on player position.
     /// </summary>
-    /// <param name="cameraPosition">Current camera position</param>
-    public void Update(Vector2 cameraPosition)
+    /// <param name="playerPosition">Current player position</param>
+    public void Update(Vector2 playerPosition)
     {
-        // Calculate camera movement since last frame
-        Vector2 cameraMovement = cameraPosition - _lastCameraPosition; // REVERSED! Now getting movement in correct direction
-        _lastCameraPosition = cameraPosition;
+        // Only update horizontal position from the player - keep vertical position limited
+        Vector2 constrainedPosition = new Vector2(
+            playerPosition.X,
+            // Limit the vertical position change to keep backgrounds more stable
+            MathHelper.Clamp(playerPosition.Y, -100, 300)
+        );
 
+        // Smoothly move the position toward the target
+        // This eliminates the bouncy, physics-based movement from being visible in the background
+        _smoothedPosition = Vector2.Lerp(_smoothedPosition, constrainedPosition, _smoothingFactor);
+
+        // Use the smoothed position for all parallax calculations
         // Update each layer position based on its parallax factor
         foreach (var layer in _layers)
         {
-            // Move in the opposite direction of the camera movement to create parallax effect
-            // Multiply by parallax factor to control speed
-            layer.Position += cameraMovement * layer.ParallaxFactor;
-        }
-    }
+            // Calculate layer position based on smoothed position
+            // Lower parallax factor (closer to 0) will result in a slower moving background,
+            // creating the illusion that it is farther away
+            layer.Position.X = -_smoothedPosition.X * layer.ParallaxFactor;
 
-    /// <summary>
-    /// Draws all parallax layers with horizontal repetition.
-    /// </summary>
-    /// <param name="spriteBatch">SpriteBatch to use for drawing</param>
-    /// <param name="camera">Camera instance for calculating visible area</param>
+            // For vertical parallax, use an extremely small factor for minimal movement
+            // We want horizontal parallax but barely any vertical movement
+            float verticalFactor = layer.ParallaxFactor * 0.05f; // Very small vertical factor
+            layer.Position.Y = -_smoothedPosition.Y * verticalFactor;
+        }
+
+        // Store last position for Reset functionality
+        _lastCameraPosition = constrainedPosition;
+    }    /// <summary>
+         /// Draws all parallax layers with horizontal repetition.
+         /// </summary>
+         /// <param name="spriteBatch">SpriteBatch to use for drawing</param>
+         /// <param name="camera">Camera instance for calculating visible area</param>
     public void Draw(SpriteBatch spriteBatch, Camera2D camera)
     {
-        // Get the visible area of the world
-        var visibleBounds = camera.GetVisibleWorldBounds();
+        // End the current sprite batch if one is active
+        spriteBatch.End();
+
+        // Start a new sprite batch without camera transformation for background
+        spriteBatch.Begin(samplerState: SamplerState.LinearWrap);
+
+        // Get screen dimensions
+        Viewport viewport = spriteBatch.GraphicsDevice.Viewport;
+        float screenWidth = viewport.Width;
+        float screenHeight = viewport.Height;
+
+        // Define screen center
+        Vector2 screenCenter = new Vector2(screenWidth * 0.5f, screenHeight * 0.5f);
 
         foreach (var layer in _layers)
         {
-            // Calculate how much of the texture needs to be tiled horizontally
-            float effectiveWidth = layer.Texture.Width * layer.Scale;
+            // Apply camera zoom to the texture scale and make it smaller overall
+            float sizeReductionFactor = 0.8f; // Reduce the size to 80% of original
+            float zoomedScale = layer.Scale * camera.Zoom * sizeReductionFactor;
 
-            // Calculate the horizontal offset for repeating
-            float offsetX = layer.Position.X % effectiveWidth;
-            if (offsetX > 0) offsetX -= effectiveWidth;
+            // Calculate the position offset from the parallax effect
+            float parallaxOffsetX = layer.Position.X;
+            float parallaxOffsetY = layer.Position.Y + layer.VerticalOffset;
 
-            // Calculate how many copies of the texture we need to cover the visible area
-            float startX = visibleBounds.Left + offsetX;
-            int copies = (int)Math.Ceiling(visibleBounds.Width / effectiveWidth) + 2; // +2 to ensure coverage during scrolling
+            // Calculate the destination rectangle centered on screen
+            float texWidth = layer.Texture.Width;
+            float texHeight = layer.Texture.Height;
 
-            // Draw the texture repeatedly to cover the visible area horizontally
-            for (int i = 0; i < copies; i++)
-            {
-                float xPos = startX + (i * effectiveWidth);
+            // The background should be centered vertically in the screen
+            // 0.4f positions it slightly above the center (lower value = higher position)
+            float verticalScreenPosition = screenHeight * 0.4f;
 
-                // Determine vertical position with the vertical offset
-                // Using visibleBounds.Bottom - textureHeight as the baseline position (bottom of screen)
-                // Then applying the vertical offset (positive values move the layer up)
-                float yPos = visibleBounds.Bottom - (layer.Texture.Height * layer.Scale) + layer.VerticalOffset;
+            // Calculate the destination rectangle, keeping the image centered
+            Rectangle destRect = new Rectangle(
+                (int)(screenCenter.X - (texWidth * zoomedScale / 2)),  // Center horizontally
+                (int)(verticalScreenPosition - (texHeight * zoomedScale / 2)),  // Position vertically
+                (int)(texWidth * zoomedScale),
+                (int)(texHeight * zoomedScale)
+            );
 
-                spriteBatch.Draw(
-                    layer.Texture,
-                    new Vector2(xPos, yPos),
-                    null,
-                    layer.Tint,
-                    0f,
-                    Vector2.Zero,
-                    layer.Scale,
-                    SpriteEffects.None,
-                    0f
-                );
-            }
+            // Calculate source rectangle that handles the parallax scrolling
+            // Using horizontal wrapping by offsetting the source rectangle
+            float textureOffsetX = parallaxOffsetX / zoomedScale;
+            float textureOffsetY = parallaxOffsetY / zoomedScale;
+
+            // Create source rectangle that handles tiling
+            // This is the key for smooth, seamless tiling with the LinearWrap sampler state
+            Rectangle sourceRect = new Rectangle(
+                (int)textureOffsetX,
+                (int)textureOffsetY,
+                (int)(screenWidth / zoomedScale),
+                (int)(texHeight)
+            );
+
+            // Draw the entire background as one piece, letting LinearWrap handle the tiling
+            spriteBatch.Draw(
+                layer.Texture,
+                destRect,
+                sourceRect,
+                layer.Tint
+            );
         }
+
+        // Restore the original sprite batch with camera transform
+        spriteBatch.End();
+        spriteBatch.Begin(transformMatrix: camera.GetMatrix(), samplerState: SamplerState.PointClamp);
     }
 
     /// <summary>
-    /// Resets the parallax system to follow a new camera position without transitioning.
-    /// Useful when teleporting the camera or initializing.
+    /// Resets the parallax system to a new player position without transitioning.
+    /// Useful when teleporting the player or initializing.
     /// </summary>
-    /// <param name="cameraPosition">New camera position</param>
-    public void Reset(Vector2 cameraPosition)
+    /// <param name="playerPosition">New player position</param>
+    public void Reset(Vector2 playerPosition)
     {
-        _lastCameraPosition = cameraPosition;
+        // Apply same vertical constraints as in Update method
+        Vector2 constrainedPosition = new Vector2(
+            playerPosition.X,
+            MathHelper.Clamp(playerPosition.Y, -100, 300)
+        );
+
+        // Immediately set smoothed position to match player position (no smoothing on reset)
+        _smoothedPosition = constrainedPosition;
+        _lastCameraPosition = constrainedPosition;
+
+        // Initialize layer positions based on player position
+        if (_layers != null)
+        {
+            foreach (var layer in _layers)
+            {
+                layer.Position.X = -constrainedPosition.X * layer.ParallaxFactor;
+
+                // For vertical parallax, use a smaller factor (same as in Update)
+                float verticalFactor = layer.ParallaxFactor * 0.05f;
+                layer.Position.Y = -constrainedPosition.Y * verticalFactor;
+            }
+        }
     }
 }
