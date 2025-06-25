@@ -1,6 +1,4 @@
 ﻿using DinoGrr.Core;
-using Foundation;
-using UIKit;
 
 namespace DinoGrr.iOS;
 

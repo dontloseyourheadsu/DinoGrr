@@ -1,9 +1,4 @@
-using Android.App;
-using Android.Content.PM;
-using Android.OS;
-using Android.Views;
 using DinoGrr.Core;
-using Microsoft.Xna.Framework;
 
 namespace DinoGrr.Android;
 

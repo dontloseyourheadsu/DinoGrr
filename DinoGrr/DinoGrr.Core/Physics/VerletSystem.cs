@@ -5,7 +5,6 @@ using System;
 using System.Drawing;
 using Color = Microsoft.Xna.Framework.Color;
 using DinoGrr.Core.Events;
-using DinoGrr.Core.Entities;
 using DinoGrr.Core.Rendering;
 
 namespace DinoGrr.Core.Physics;

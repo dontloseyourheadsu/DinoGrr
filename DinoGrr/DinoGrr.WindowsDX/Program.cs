@@ -1,7 +1,4 @@
-﻿using System.Windows.Forms;
-using DinoGrr.Core;
-
-internal class Program
+﻿internal class Program
 {
     /// <summary>
     /// The main entry point for the application on Windows.
