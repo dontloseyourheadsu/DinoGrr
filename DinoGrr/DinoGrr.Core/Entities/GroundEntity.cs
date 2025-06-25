@@ -313,7 +313,7 @@ public class GroundEntity : IDisposable
     /// <summary>
     /// Cleans up event handlers when the ground entity is no longer needed.
     /// </summary>
-    public void Dispose()
+    public virtual void Dispose()
     {
         _verletSystem.Collision -= OnCollision;
     }

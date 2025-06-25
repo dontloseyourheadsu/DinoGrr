@@ -9,6 +9,7 @@ using DinoGrr.Core.Rendering.Textures;
 using DinoGrr.Core.Rendering.Parallax;
 using DinoGrr.Core.Entities.Dinosaurs;
 using DinoGrr.Core.Entities.Player;
+using DinoGrr.Core.UI;
 
 namespace DinoGrr.Core
 {
@@ -42,6 +43,11 @@ namespace DinoGrr.Core
         // Parallax background
         private ParallaxBackground _parallaxBackground;
         private Texture2D[] _backgroundLayers;
+
+        // UI System
+        private GameUI _gameUI;
+        private SpriteFont _font;
+        private Texture2D _pixelTexture;
 
         private KeyboardState _currKeyboard, _prevKeyboard;
 
@@ -163,6 +169,16 @@ namespace DinoGrr.Core
             // Create renderers
             _dinoRenderer = new DinosaurRenderer(GraphicsDevice, _dinoTexture, _dino);
             _dinoGirlRenderer = new DinoGirlRenderer(GraphicsDevice, _dinoGirlTexture, _dinoGirl);
+
+            // Load UI font and create pixel texture
+            _font = Content.Load<SpriteFont>("Fonts/Hud");
+
+            // Create a 1x1 white pixel texture for UI backgrounds
+            _pixelTexture = new Texture2D(GraphicsDevice, 1, 1);
+            _pixelTexture.SetData(new[] { Color.White });
+
+            // Initialize the UI system
+            _gameUI = new GameUI(_spriteBatch, _font, _dinoGirl, _pixelTexture);
         }
 
         /// <summary>
@@ -179,6 +195,13 @@ namespace DinoGrr.Core
             // Track keyboard state for detecting key presses
             _prevKeyboard = _currKeyboard;
             _currKeyboard = Keyboard.GetState();
+
+            // Handle restart when game is over
+            if (_dinoGirl.CurrentLifePoints <= 0 && IsKeyPressed(Keys.R))
+            {
+                RestartGame();
+                return;
+            }
 
             // Get delta time
             float dt = (float)gameTime.ElapsedGameTime.TotalSeconds;
@@ -218,6 +241,9 @@ namespace DinoGrr.Core
 
             // Advance the physics simulation
             _verletSystem.Update(dt, subSteps: 4); // More iterations = more stable
+
+            // Update DinoGirl's state (invincibility timer, etc.)
+            _dinoGirl.Update(dt);
 
             // Update renderers
             _dinoRenderer.Update();
@@ -314,6 +340,11 @@ namespace DinoGrr.Core
             _dinoRenderer.Draw(_camera);
             _dinoGirlRenderer.Draw(_camera);
 
+            // Draw the UI on top (without camera transformation)
+            _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+            _gameUI.Draw();
+            _spriteBatch.End();
+
             base.Draw(gameTime);
         }
 
@@ -351,6 +382,30 @@ namespace DinoGrr.Core
         private bool IsKeyPressed(Keys key)
         {
             return _currKeyboard.IsKeyDown(key) && _prevKeyboard.IsKeyUp(key);
+        }
+
+        /// <summary>
+        /// Restarts the game by resetting DinoGirl's life points and position.
+        /// </summary>
+        private void RestartGame()
+        {
+            // Reset DinoGirl's life points and status
+            _dinoGirl.Reset();
+
+            // Reset DinoGirl's position
+            Vector2 startPosition = new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3);
+            for (int i = 0; i < _dinoGirl.Points.Count; i++)
+            {
+                var point = _dinoGirl.Points[i];
+                // Reset to original position relative to start
+                Vector2 offset = Vector2.Zero;
+                if (i == 1) offset = new Vector2(0, -60); // Top point
+                else if (i == 2) offset = new Vector2(50, -60); // Top-right
+                else if (i == 3) offset = new Vector2(50, 0); // Bottom-right
+
+                point.Position = startPosition + offset;
+                point.PreviousPosition = point.Position; // Reset velocity
+            }
         }
     }
 }
