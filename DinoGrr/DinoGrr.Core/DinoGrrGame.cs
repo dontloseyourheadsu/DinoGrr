@@ -16,6 +16,15 @@ namespace DinoGrr.Core
     /// <summary>
     /// Main entry point for the DinoGrr game using MonoGame.
     /// Manages the game loop, rendering, camera movement, user input, and physics simulation.
+    /// 
+    /// Controls:
+    /// - Arrow Keys: Move DinoGirl (Left/Right to walk, Up to jump)
+    /// - G: Follow DinoGirl with camera
+    /// - N: Follow Random Dinosaur with camera
+    /// - M: Follow Targeting Dinosaur with camera
+    /// - F: Free camera (stop following)
+    /// - R: Restart game when game over
+    /// - Escape: Exit game
     /// </summary>
     public class DinoGrrGame : Game
     {
@@ -29,7 +38,9 @@ namespace DinoGrr.Core
         private Camera2D _camera;
         private SoftBody _trampoline;
         private NormalDinosaur _dino;
+        private NormalDinosaur _targetingDino;
         private DinosaurRenderer _dinoRenderer;
+        private DinosaurRenderer _targetingDinoRenderer;
         private Texture2D _dinoTexture;
 
         // DinoGirl character
@@ -39,6 +50,9 @@ namespace DinoGrr.Core
 
         // Random movement for dinosaur
         private RandomDinoMover _randomDinoMover;
+
+        // Targeting AI for the second dinosaur
+        private TargetingDinoAI _targetingDinoAI;
 
         // Parallax background
         private ParallaxBackground _parallaxBackground;
@@ -114,13 +128,21 @@ namespace DinoGrr.Core
             // Set a very smooth value for parallax - this will make it much less 'bouncy'
             _parallaxBackground.SmoothingFactor = 0.01f;
 
-            // Create the dinosaur (positioned on the left side)
+            // Create the first dinosaur (positioned on the left side) - uses random movement
             _dino = new NormalDinosaur(
                 _verletSystem,
                 new Vector2(VIRTUAL_WIDTH / 4, VIRTUAL_HEIGHT / 3),
                 120, 80,
                 stiffness: 0.005f,
-                name: "Dino"); // Set a lower speed limit for the dinosaur
+                name: "RandomDino"); // Set a lower speed limit for the dinosaur
+
+            // Create the second dinosaur (positioned on the right side) - uses targeting AI
+            _targetingDino = new NormalDinosaur(
+                _verletSystem,
+                new Vector2(VIRTUAL_WIDTH * 3 / 4, VIRTUAL_HEIGHT / 3),
+                120, 80,
+                stiffness: 0.005f,
+                name: "TargetingDino");
 
             // Create DinoGirl (positioned on the right side)
             _dinoGirl = new DinoGirl(
@@ -131,8 +153,12 @@ namespace DinoGrr.Core
                 name: "DinoGirl",
                 maxSpeed: 1f); // Set a maximum speed limit for DinoGirl
 
-            // Initialize random movement for the dinosaur
+            // Initialize random movement for the first dinosaur
             _randomDinoMover = new RandomDinoMover(_dino);
+
+            // Initialize targeting AI for the second dinosaur (1/3 of virtual world distance)
+            float maxTargetDistance = VIRTUAL_WIDTH / 3f;
+            _targetingDinoAI = new TargetingDinoAI(_targetingDino, _dinoGirl, maxTargetDistance);
 
             // Create a trampoline floor at the bottom
             _trampoline = RectangleSoftBodyBuilder.CreateRectangle(
@@ -168,6 +194,7 @@ namespace DinoGrr.Core
 
             // Create renderers
             _dinoRenderer = new DinosaurRenderer(GraphicsDevice, _dinoTexture, _dino);
+            _targetingDinoRenderer = new DinosaurRenderer(GraphicsDevice, _dinoTexture, _targetingDino);
             _dinoGirlRenderer = new DinoGirlRenderer(GraphicsDevice, _dinoGirlTexture, _dinoGirl);
 
             // Load UI font and create pixel texture
@@ -212,10 +239,19 @@ namespace DinoGrr.Core
             // Update random dinosaur movement
             _randomDinoMover.Update(dt);
 
-            // Press N to follow the dinosaur
+            // Update targeting dinosaur AI
+            _targetingDinoAI.Update(dt);
+
+            // Press N to follow the random dinosaur
             if (IsKeyPressed(Keys.N) && _dino.Points.Count > 0)
             {
                 _camera.Follow(_dino.Points[0]);
+            }
+
+            // Press M to follow the targeting dinosaur
+            if (IsKeyPressed(Keys.M) && _targetingDino.Points.Count > 0)
+            {
+                _camera.Follow(_targetingDino.Points[0]);
             }
 
             // Press G to follow the DinoGirl
@@ -247,6 +283,7 @@ namespace DinoGrr.Core
 
             // Update renderers
             _dinoRenderer.Update();
+            _targetingDinoRenderer.Update();
             _dinoGirlRenderer.Update(dt); // Pass dt for animation timing
 
             base.Update(gameTime);
@@ -338,6 +375,7 @@ namespace DinoGrr.Core
 
             // Draw the characters with their own SpriteBatch begins/ends
             _dinoRenderer.Draw(_camera);
+            _targetingDinoRenderer.Draw(_camera);
             _dinoGirlRenderer.Draw(_camera);
 
             // Draw the UI on top (without camera transformation)
@@ -393,7 +431,7 @@ namespace DinoGrr.Core
             _dinoGirl.Reset();
 
             // Reset DinoGirl's position
-            Vector2 startPosition = new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3);
+            Vector2 dinoGirlStartPosition = new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3);
             for (int i = 0; i < _dinoGirl.Points.Count; i++)
             {
                 var point = _dinoGirl.Points[i];
@@ -403,7 +441,35 @@ namespace DinoGrr.Core
                 else if (i == 2) offset = new Vector2(50, -60); // Top-right
                 else if (i == 3) offset = new Vector2(50, 0); // Bottom-right
 
-                point.Position = startPosition + offset;
+                point.Position = dinoGirlStartPosition + offset;
+                point.PreviousPosition = point.Position; // Reset velocity
+            }
+
+            // Reset random dinosaur position
+            Vector2 randomDinoStartPosition = new Vector2(VIRTUAL_WIDTH / 4, VIRTUAL_HEIGHT / 3);
+            for (int i = 0; i < _dino.Points.Count; i++)
+            {
+                var point = _dino.Points[i];
+                Vector2 offset = Vector2.Zero;
+                if (i == 1) offset = new Vector2(0, -40); // Top point
+                else if (i == 2) offset = new Vector2(60, -40); // Top-right
+                else if (i == 3) offset = new Vector2(60, 0); // Bottom-right
+
+                point.Position = randomDinoStartPosition + offset;
+                point.PreviousPosition = point.Position; // Reset velocity
+            }
+
+            // Reset targeting dinosaur position
+            Vector2 targetingDinoStartPosition = new Vector2(VIRTUAL_WIDTH * 3 / 4, VIRTUAL_HEIGHT / 3);
+            for (int i = 0; i < _targetingDino.Points.Count; i++)
+            {
+                var point = _targetingDino.Points[i];
+                Vector2 offset = Vector2.Zero;
+                if (i == 1) offset = new Vector2(0, -40); // Top point
+                else if (i == 2) offset = new Vector2(60, -40); // Top-right
+                else if (i == 3) offset = new Vector2(60, 0); // Bottom-right
+
+                point.Position = targetingDinoStartPosition + offset;
                 point.PreviousPosition = point.Position; // Reset velocity
             }
         }
