@@ -7,5 +7,8 @@ public enum CollisionType
 {
     PointToPoint,
     PointToEdge,
-    SoftBodyOverlap
+    SoftBodyOverlap,
+    RigidBodyToRigidBody,
+    RigidBodyToVerletPoint,
+    RigidBodyToSoftBody
 }

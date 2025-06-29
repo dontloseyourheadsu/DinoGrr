@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
+using System;
 using DinoGrr.Core.Physics;
 using Color = Microsoft.Xna.Framework.Color;
 using DinoGrr.Core.Builders;
@@ -63,6 +64,10 @@ namespace DinoGrr.Core
         private SpriteFont _font;
         private Texture2D _pixelTexture;
 
+        // Rigid Body Drawing System
+        private RigidBodySystem _rigidBodySystem;
+        private MouseDrawingSystem _mouseDrawingSystem;
+
         private KeyboardState _currKeyboard, _prevKeyboard;
 
         /// <summary>
@@ -89,6 +94,9 @@ namespace DinoGrr.Core
         {
             // Initialize the Verlet physics system using virtual dimensions
             _verletSystem = new VerletSystem(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
+
+            // Initialize the rigid body physics system
+            _rigidBodySystem = new RigidBodySystem(VIRTUAL_WIDTH, VIRTUAL_HEIGHT, _verletSystem);
 
             // Initialize the parallax background
             _parallaxBackground = new ParallaxBackground(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
@@ -175,6 +183,9 @@ namespace DinoGrr.Core
 
             // Set initial camera follow smoothing
             _camera.FollowSmoothing = 0.05f;
+
+            // Initialize the mouse drawing system
+            _mouseDrawingSystem = new MouseDrawingSystem(_camera);
 
             // Follow the DinoGirl instead of dinosaur
             _camera.Follow(_dinoGirl.Points[0]);
@@ -278,6 +289,21 @@ namespace DinoGrr.Core
             // Advance the physics simulation
             _verletSystem.Update(dt, subSteps: 4); // More iterations = more stable
 
+            // Update rigid body physics system
+            _rigidBodySystem.Update(dt, subSteps: 4);
+
+            // Update mouse drawing system
+            _mouseDrawingSystem.Update(Mouse.GetState());
+
+            // Check if a drawing was completed and create a rigid body
+            var completedDrawing = _mouseDrawingSystem.GetCompletedDrawing();
+            if (completedDrawing != null)
+            {
+                // Create a rigid body from the completed drawing with amber color
+                var amberColor = new Color(255, 191, 0); // Amber color
+                _rigidBodySystem.CreateRigidBodyFromDrawing(completedDrawing, amberColor, 8f, 1f); // Thicker lines (8f)
+            }
+
             // Update DinoGirl's state (invincibility timer, etc.)
             _dinoGirl.Update(dt);
 
@@ -358,6 +384,12 @@ namespace DinoGrr.Core
             // Draw all points, springs, and visual elements in the physics system
             _verletSystem.Draw(_spriteBatch);
 
+            // Draw all rigid bodies
+            _rigidBodySystem.Draw(_spriteBatch);
+
+            // Draw current mouse drawing preview
+            DrawMouseDrawingPreview();
+
             // Optionally draw debug visualization
             // _verletSystem.DrawDebugSoftBodyBounds(_spriteBatch);
 
@@ -410,6 +442,31 @@ namespace DinoGrr.Core
         private void DrawLine(Vector2 start, Vector2 end, Color color, float thickness = 1f)
         {
             Line.Draw(_spriteBatch, start, end, color, thickness);
+        }
+
+        /// <summary>
+        /// Draws the current mouse drawing preview while the user is drawing.
+        /// </summary>
+        private void DrawMouseDrawingPreview()
+        {
+            if (_mouseDrawingSystem.State == MouseDrawingSystem.DrawingState.Drawing &&
+                _mouseDrawingSystem.CurrentDrawing.Count > 0)
+            {
+                var amberColor = new Color(255, 191, 0); // Amber color
+                var points = _mouseDrawingSystem.CurrentDrawing;
+
+                // Draw the current drawing path as connected lines (no closing)
+                for (int i = 0; i < points.Count - 1; i++)
+                {
+                    Line.Draw(_spriteBatch, points[i], points[i + 1], amberColor, 8f); // Thick amber lines
+                }
+
+                // Draw bigger circles at each point
+                foreach (var point in points)
+                {
+                    Circle.Draw(_spriteBatch, point, 12f, amberColor); // Bigger amber circles
+                }
+            }
         }
 
         /// <summary>
