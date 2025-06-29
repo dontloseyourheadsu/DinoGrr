@@ -110,4 +110,16 @@ public class CollisionEventArgs
         Normal = normal;
         ImpulseMagnitude = depth;
     }
+
+    /// <summary>
+    /// Creates a new instance of CollisionEventArgs for rigid body collisions.
+    /// </summary>
+    public CollisionEventArgs(CollisionType type, Vector2 contactPoint, Vector2 normal, float impulse)
+    {
+        CollisionType = type;
+        Normal = normal;
+        ImpulseMagnitude = impulse;
+        // For rigid body collisions, we don't have specific VerletPoint references
+        // so we leave those as null
+    }
 }

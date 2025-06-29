@@ -70,6 +70,14 @@ public class VerletSystem
     }
 
     /// <summary>
+    /// Gets all Verlet points in the system.
+    /// </summary>
+    public IReadOnlyList<VerletPoint> GetAllPoints()
+    {
+        return _points.AsReadOnly();
+    }
+
+    /// <summary>
     /// Creates and adds a new Verlet point to the system.
     /// </summary>
     public VerletPoint CreatePoint(Vector2 position, float radius, float mass, Color color, bool isFixed = false)
