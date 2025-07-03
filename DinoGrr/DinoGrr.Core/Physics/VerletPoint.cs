@@ -97,7 +97,11 @@ public class VerletPoint
             PreviousPosition = Position - velocity; // Update previous position to reflect limited velocity
         }
 
-        Position = Position + velocity + Acceleration * deltaTime * deltaTime;
+        // Improved Verlet integration with better stability
+        float dampingFactor = 0.999f; // Small amount of damping for stability
+        Vector2 dampedVelocity = velocity * dampingFactor;
+
+        Position = Position + dampedVelocity + Acceleration * deltaTime * deltaTime;
         PreviousPosition = temp;
         Acceleration = Vector2.Zero;
     }
@@ -185,12 +189,17 @@ public class VerletPoint
             // Update position and velocity
             PreviousPosition = Position - newVelocity;
 
-            // Add floor friction
+            // Add enhanced floor friction
             if (Position.Y >= height - Radius)
             {
-                float frictionFactor = 0.98f;
-                Vector2 horizontalVelocity = new Vector2(newVelocity.X * frictionFactor, newVelocity.Y);
+                Vector2 horizontalVelocity = new Vector2(newVelocity.X * PhysicsConfig.GroundFriction, newVelocity.Y);
                 PreviousPosition = Position - horizontalVelocity;
+            }
+            // Add wall friction
+            else if (Position.X <= Radius || Position.X >= width - Radius)
+            {
+                Vector2 verticalVelocity = new Vector2(newVelocity.X, newVelocity.Y * PhysicsConfig.WallFriction);
+                PreviousPosition = Position - verticalVelocity;
             }
 
             // Notify the owner SoftBody (if any) about this boundary collision

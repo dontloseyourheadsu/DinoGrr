@@ -51,7 +51,7 @@ public class RigidBodySystem
     {
         _bounds = new RectangleF(0, 0, screenWidth, screenHeight);
         _verletSystem = verletSystem ?? throw new ArgumentNullException(nameof(verletSystem));
-        Gravity = gravity ?? new Vector2(0, 9.8f * 15);
+        Gravity = gravity ?? PhysicsConfig.Gravity;
     }
 
     /// <summary>
