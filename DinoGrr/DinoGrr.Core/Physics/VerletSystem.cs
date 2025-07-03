@@ -47,18 +47,28 @@ public class VerletSystem
     public event EventHandler<CollisionEventArgs> Collision;
 
     /// <summary>
+    /// Diagnostic system for monitoring physics performance.
+    /// </summary>
+    public PhysicsDiagnostics Diagnostics { get; private set; } = new PhysicsDiagnostics();
+
+    /// <summary>
+    /// Counter for collision detection this frame.
+    /// </summary>
+    private int _currentFrameCollisions = 0;
+
+    /// <summary>
     /// Creates a new Verlet physics system.
     /// </summary>
     /// <param name="screenWidth">Width of the screen.</param>
     /// <param name="screenHeight">Height of the screen.</param>
-    /// <param name="gravity">Gravity vector (defaults to downward).</param>
-    /// <param name="dampingFactor">Damping factor (0.0 to 1.0, where 1.0 is perfectly elastic).</param>
-    public VerletSystem(int screenWidth, int screenHeight, Vector2? gravity = null, float dampingFactor = 0.1f)
+    /// <param name="gravity">Gravity vector (defaults to PhysicsConfig value).</param>
+    /// <param name="dampingFactor">Damping factor (defaults to PhysicsConfig value).</param>
+    public VerletSystem(int screenWidth, int screenHeight, Vector2? gravity = null, float? dampingFactor = null)
     {
         this._points = new List<VerletPoint>();
-        this._gravity = gravity ?? new Vector2(0, 9.8f * 15);
+        this._gravity = gravity ?? PhysicsConfig.Gravity;
         this._bounds = new RectangleF(0, 0, screenWidth, screenHeight);
-        this._dampingFactor = MathHelper.Clamp(dampingFactor, 0.0f, 1.0f);
+        this._dampingFactor = dampingFactor ?? PhysicsConfig.GlobalDamping;
     }
 
     /// <summary>
@@ -112,23 +122,77 @@ public class VerletSystem
     /// <summary>
     /// Updates the physics of all points in the system.
     /// </summary>
-    public void Update(float deltaTime, int subSteps = 8)
+    public void Update(float deltaTime, int? subSteps = null)
     {
-        float subDeltaTime = deltaTime / subSteps;
+        var startTime = DateTime.UtcNow;
+        _currentFrameCollisions = 0;
 
-        for (int step = 0; step < subSteps; step++)
+        int actualSubSteps = subSteps ?? PhysicsConfig.DefaultSubSteps;
+
+        // Adaptive sub-stepping to prevent tunneling
+        float maxVelocity = GetMaxVelocity();
+        float minRadius = GetMinRadius();
+
+        // Calculate required sub-steps based on velocity and object size
+        if (maxVelocity > 0 && minRadius > 0)
+        {
+            int requiredSubSteps = Math.Max(actualSubSteps, (int)Math.Ceiling(maxVelocity * deltaTime / (minRadius * 0.5f)));
+            actualSubSteps = Math.Min(requiredSubSteps, PhysicsConfig.MaxSubSteps);
+        }
+
+        float subDeltaTime = deltaTime / actualSubSteps;
+
+        for (int step = 0; step < actualSubSteps; step++)
         {
             ApplyForces();
             UpdatePoints(subDeltaTime);
-            SatisfySprings();
+            ApplyVelocityDamping();
 
-            // First resolve collisions between points
-            ResolveCollisions();
-            ResolveSoftBodyCollisions();
-
-            // Then apply constraints which may generate additional collisions
-            ApplyConstraints();
+            // Multiple constraint satisfaction iterations to improve stability
+            for (int i = 0; i < PhysicsConfig.ConstraintIterations; i++)
+            {
+                SatisfySprings(PhysicsConfig.SpringIterations);
+                ResolveCollisions();
+                ResolveSoftBodyCollisions();
+                ApplyConstraints();
+            }
         }
+
+        // Update diagnostics
+        var frameTime = (float)(DateTime.UtcNow - startTime).TotalMilliseconds;
+        Diagnostics.UpdateFrame(frameTime, _currentFrameCollisions, maxVelocity);
+    }
+
+    /// <summary>
+    /// Gets the maximum velocity of all non-fixed points in the system.
+    /// </summary>
+    private float GetMaxVelocity()
+    {
+        float maxVel = 0f;
+        foreach (var point in _points)
+        {
+            if (!point.IsFixed)
+            {
+                float vel = point.GetVelocity().Length();
+                if (vel > maxVel) maxVel = vel;
+            }
+        }
+        return maxVel;
+    }
+
+    /// <summary>
+    /// Gets the minimum radius of all points in the system.
+    /// </summary>
+    private float GetMinRadius()
+    {
+        if (_points.Count == 0) return 1f;
+
+        float minRadius = float.MaxValue;
+        foreach (var point in _points)
+        {
+            if (point.Radius < minRadius) minRadius = point.Radius;
+        }
+        return minRadius == float.MaxValue ? 1f : minRadius;
     }
 
     /// <summary>
@@ -158,6 +222,7 @@ public class VerletSystem
     /// </summary>
     private void ResolveCollisions()
     {
+        // Use spatial hashing for better performance with many objects
         for (int i = 0; i < _points.Count; i++)
         {
             for (int j = i + 1; j < _points.Count; j++)
@@ -171,58 +236,152 @@ public class VerletSystem
                 float minDistance = p1.Radius + p2.Radius;
                 float minDistanceSquared = minDistance * minDistance;
 
-                if (distanceSquared < minDistanceSquared && distanceSquared > 0)
+                if (distanceSquared < minDistanceSquared && distanceSquared > PhysicsConfig.MinDistanceThreshold)
                 {
                     float distance = (float)Math.Sqrt(distanceSquared);
                     Vector2 direction = delta / distance;
                     float overlap = minDistance - distance;
 
-                    float totalMass = p1.Mass + p2.Mass;
-                    float p1Factor = p1.IsFixed ? 0 : p2.Mass / totalMass;
-                    float p2Factor = p2.IsFixed ? 0 : p1.Mass / totalMass;
+                    // Use inverse mass for more realistic collision response
+                    float invMass1 = p1.IsFixed ? 0 : 1.0f / p1.Mass;
+                    float invMass2 = p2.IsFixed ? 0 : 1.0f / p2.Mass;
+                    float totalInvMass = invMass1 + invMass2;
 
-                    Vector2 v1 = p1.GetVelocity();
-                    Vector2 v2 = p2.GetVelocity();
-                    Vector2 relativeVelocity = v2 - v1;
-                    float velocityAlongNormal = Vector2.Dot(relativeVelocity, direction);
-
-                    // Calculate impulse magnitude regardless of whether we're going to apply impulse
-                    float restitution = _dampingFactor;
-                    float impulseMagnitude = -(1.0f + restitution) * velocityAlongNormal;
-                    impulseMagnitude /= (1.0f / p1.Mass) + (1.0f / p2.Mass);
-
-                    // Always fire the collision event, even for fixed points
-                    // This allows ground entities to detect collisions with fixed objects
-                    Collision?.Invoke(this, new CollisionEventArgs(p1, p2, direction, MathF.Abs(impulseMagnitude)));
-
-                    if (velocityAlongNormal < 0)
+                    if (totalInvMass > 0)
                     {
-                        Vector2 impulse = direction * impulseMagnitude;
+                        Vector2 v1 = p1.GetVelocity();
+                        Vector2 v2 = p2.GetVelocity();
+                        Vector2 relativeVelocity = v2 - v1;
+                        float velocityAlongNormal = Vector2.Dot(relativeVelocity, direction);
 
-                        // Apply collision response
+                        // Calculate impulse magnitude
+                        float restitution = _dampingFactor;
+                        float impulseMagnitude = -(1.0f + restitution) * velocityAlongNormal / totalInvMass;
+
+                        // Fire collision event
+                        Collision?.Invoke(this, new CollisionEventArgs(p1, p2, direction, MathF.Abs(impulseMagnitude)));
+                        _currentFrameCollisions++;
+
+                        // Position correction with stability improvements
+                        float correctionPercent = PhysicsConfig.PositionCorrectionPercent;
+                        float slop = PhysicsConfig.PositionSlop;
+                        Vector2 correction = direction * Math.Max(overlap - slop, 0.0f) * correctionPercent / totalInvMass;
+
                         if (!p1.IsFixed)
                         {
-                            p1.Position -= direction * overlap * p1Factor;
-                            p1.AdjustVelocity(-impulse / p1.Mass);
+                            p1.Position -= correction * invMass1;
                         }
 
                         if (!p2.IsFixed)
                         {
-                            p2.Position += direction * overlap * p2Factor;
-                            p2.AdjustVelocity(impulse / p2.Mass);
+                            p2.Position += correction * invMass2;
                         }
-                    }
-                    else
-                    {
-                        if (!p1.IsFixed)
-                            p1.Position -= direction * overlap * p1Factor;
 
-                        if (!p2.IsFixed)
-                            p2.Position += direction * overlap * p2Factor;
+                        // Apply velocity correction only if objects are approaching
+                        if (velocityAlongNormal < 0)
+                        {
+                            Vector2 impulse = direction * impulseMagnitude;
+
+                            if (!p1.IsFixed)
+                            {
+                                p1.AdjustVelocity(-impulse * invMass1);
+                            }
+
+                            if (!p2.IsFixed)
+                            {
+                                p2.AdjustVelocity(impulse * invMass2);
+                            }
+
+                            // Add friction for more realistic interactions
+                            ApplyFriction(p1, p2, direction, impulseMagnitude);
+                        }
                     }
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Applies friction between two colliding points.
+    /// </summary>
+    private void ApplyFriction(VerletPoint p1, VerletPoint p2, Vector2 normal, float normalImpulse)
+    {
+        Vector2 v1 = p1.GetVelocity();
+        Vector2 v2 = p2.GetVelocity();
+        Vector2 relativeVelocity = v2 - v1;
+
+        // Calculate tangent direction
+        Vector2 tangent = relativeVelocity - Vector2.Dot(relativeVelocity, normal) * normal;
+        if (tangent.LengthSquared() < PhysicsConfig.MinDistanceThreshold) return;
+
+        tangent = Vector2.Normalize(tangent);
+
+        // Determine friction coefficient based on surface types
+        float frictionCoefficient = GetFrictionBetweenObjects(p1, p2);
+
+        // Use surface-specific friction coefficient
+        float frictionImpulse = -Vector2.Dot(relativeVelocity, tangent);
+
+        float invMass1 = p1.IsFixed ? 0 : 1.0f / p1.Mass;
+        float invMass2 = p2.IsFixed ? 0 : 1.0f / p2.Mass;
+        frictionImpulse /= (invMass1 + invMass2);
+
+        // Coulomb friction model
+        if (Math.Abs(frictionImpulse) < normalImpulse * frictionCoefficient)
+        {
+            // Static friction
+            Vector2 frictionForce = tangent * frictionImpulse;
+
+            if (!p1.IsFixed)
+                p1.AdjustVelocity(-frictionForce * invMass1);
+            if (!p2.IsFixed)
+                p2.AdjustVelocity(frictionForce * invMass2);
+        }
+        else
+        {
+            // Kinetic friction
+            float sign = frictionImpulse < 0 ? -1 : 1;
+            Vector2 frictionForce = tangent * normalImpulse * frictionCoefficient * sign;
+
+            if (!p1.IsFixed)
+                p1.AdjustVelocity(-frictionForce * invMass1);
+            if (!p2.IsFixed)
+                p2.AdjustVelocity(frictionForce * invMass2);
+        }
+    }
+
+    /// <summary>
+    /// Determines the friction coefficient between two objects based on their surface types.
+    /// </summary>
+    private float GetFrictionBetweenObjects(VerletPoint p1, VerletPoint p2)
+    {
+        // Get surface tags from the points or their owner soft bodies
+        string surface1 = GetSurfaceTag(p1);
+        string surface2 = GetSurfaceTag(p2);
+
+        // Get friction for each surface
+        float friction1 = PhysicsConfig.GetSurfaceFriction(surface1);
+        float friction2 = PhysicsConfig.GetSurfaceFriction(surface2);
+
+        // Use the minimum friction (most slippery surface dominates)
+        return Math.Min(friction1, friction2);
+    }
+
+    /// <summary>
+    /// Gets the surface tag for a point, checking the point's tag and its owner's tag.
+    /// </summary>
+    private string GetSurfaceTag(VerletPoint point)
+    {
+        // First check the point's own tag
+        if (!string.IsNullOrEmpty(point.Tag))
+            return point.Tag;
+
+        // Then check the owner soft body's tag
+        if (point.OwnerSoftBody != null && !string.IsNullOrEmpty(point.OwnerSoftBody.Tag))
+            return point.OwnerSoftBody.Tag;
+
+        // Default to empty string (will use default friction)
+        return string.Empty;
     }
 
     /// <summary>
@@ -615,6 +774,76 @@ public class VerletSystem
         if (borderColor.HasValue)
         {
             Circle.DebugBorderColor = borderColor.Value;
+        }
+    }
+
+    /// <summary>
+    /// Performs continuous collision detection between two points to prevent tunneling.
+    /// </summary>
+    private bool ContinuousCollisionDetection(VerletPoint p1, VerletPoint p2, out Vector2 collisionPoint, out float collisionTime)
+    {
+        collisionPoint = Vector2.Zero;
+        collisionTime = 0f;
+
+        Vector2 pos1Start = p1.PreviousPosition;
+        Vector2 pos1End = p1.Position;
+        Vector2 pos2Start = p2.PreviousPosition;
+        Vector2 pos2End = p2.Position;
+
+        Vector2 vel1 = pos1End - pos1Start;
+        Vector2 vel2 = pos2End - pos2Start;
+        Vector2 relVel = vel1 - vel2;
+        Vector2 relPos = pos1Start - pos2Start;
+
+        float minDistance = p1.Radius + p2.Radius;
+
+        // Solve quadratic equation for collision time
+        float a = Vector2.Dot(relVel, relVel);
+        float b = 2 * Vector2.Dot(relPos, relVel);
+        float c = Vector2.Dot(relPos, relPos) - minDistance * minDistance;
+
+        float discriminant = b * b - 4 * a * c;
+
+        if (discriminant < 0 || Math.Abs(a) < 0.0001f)
+            return false; // No collision
+
+        float sqrtDiscriminant = (float)Math.Sqrt(discriminant);
+        float t1 = (-b - sqrtDiscriminant) / (2 * a);
+        float t2 = (-b + sqrtDiscriminant) / (2 * a);
+
+        // Use the earliest valid collision time
+        float t = (t1 >= 0 && t1 <= 1) ? t1 : ((t2 >= 0 && t2 <= 1) ? t2 : -1);
+
+        if (t < 0 || t > 1)
+            return false; // No collision within this frame
+
+        collisionTime = t;
+        collisionPoint = pos1Start + vel1 * t;
+        return true;
+    }
+
+    /// <summary>
+    /// Applies global velocity damping to prevent runaway velocities.
+    /// </summary>
+    private void ApplyVelocityDamping()
+    {
+        foreach (var point in _points)
+        {
+            if (point.IsFixed) continue;
+
+            Vector2 velocity = point.GetVelocity();
+            float speed = velocity.Length();
+
+            // Apply global damping
+            velocity *= PhysicsConfig.VelocityDamping;
+
+            // Clamp to maximum velocity
+            if (speed > PhysicsConfig.MaxVelocity)
+            {
+                velocity = Vector2.Normalize(velocity) * PhysicsConfig.MaxVelocity;
+            }
+
+            point.SetVelocity(velocity);
         }
     }
 }

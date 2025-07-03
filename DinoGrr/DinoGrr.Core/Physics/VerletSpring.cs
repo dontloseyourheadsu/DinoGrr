@@ -73,13 +73,19 @@ public class VerletSpring
         float diff = (dist - RestLength) / dist; // Deviation factor
         Vector2 correction = delta * diff * Stiffness;
 
-        float totalMass = P1.Mass + P2.Mass;
+        // Use inverse mass for more realistic constraint satisfaction
+        float invMass1 = P1.IsFixed ? 0 : 1.0f / P1.Mass;
+        float invMass2 = P2.IsFixed ? 0 : 1.0f / P2.Mass;
+        float totalInvMass = invMass1 + invMass2;
 
-        if (!P1.IsFixed)
-            P1.Position += correction * (P2.Mass / totalMass); // Move proportional to mass
+        if (totalInvMass > 0)
+        {
+            if (!P1.IsFixed)
+                P1.Position += correction * (invMass1 / totalInvMass);
 
-        if (!P2.IsFixed)
-            P2.Position -= correction * (P1.Mass / totalMass);
+            if (!P2.IsFixed)
+                P2.Position -= correction * (invMass2 / totalInvMass);
+        }
     }
 
     /// <summary>

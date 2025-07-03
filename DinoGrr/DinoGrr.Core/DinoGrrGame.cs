@@ -162,7 +162,7 @@ namespace DinoGrr.Core
                 maxSpeed: 1f); // Set a maximum speed limit for DinoGirl
 
             // Initialize random movement for the first dinosaur
-            _randomDinoMover = new RandomDinoMover(_dino);
+                _randomDinoMover = new RandomDinoMover(_dino);
 
             // Initialize targeting AI for the second dinosaur (1/3 of virtual world distance)
             float maxTargetDistance = VIRTUAL_WIDTH / 3f;
@@ -177,6 +177,9 @@ namespace DinoGrr.Core
                 pinTop: true,  // Pin the top corners of the trampoline
                 stiffness: 0.005f,
                 maxSpeed: 10.0f); // Set a higher speed limit for the trampoline for bouncier effects
+
+            // Set trampoline tag for proper friction calculation
+            _trampoline.Tag = "trampoline";
 
             // Initialize the camera with current viewport and virtual size
             _camera = new Camera2D(GraphicsDevice.Viewport, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
