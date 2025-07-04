@@ -5,7 +5,7 @@ namespace DinoGrr.Core.Entities.Dinosaurs;
 /// <summary>
 /// Adds random movement behavior to a dinosaur.
 /// </summary>
-public class RandomDinoMover
+public class RandomDinoMover : IDinosaurAI
 {
     private readonly NormalDinosaur _dinosaur;
     private float _timeSinceLastJump;

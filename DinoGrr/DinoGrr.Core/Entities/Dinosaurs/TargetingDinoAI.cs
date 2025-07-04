@@ -7,7 +7,7 @@ namespace DinoGrr.Core.Entities.Dinosaurs;
 /// <summary>
 /// AI that makes a dinosaur target and move towards DinoGirl.
 /// </summary>
-public class TargetingDinoAI
+public class TargetingDinoAI : IDinosaurAI
 {
     private readonly NormalDinosaur _dinosaur;
     private readonly DinoGirl _target;
