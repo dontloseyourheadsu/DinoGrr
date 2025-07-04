@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
+using System.Linq;
 using DinoGrr.Core.Physics;
 using Color = Microsoft.Xna.Framework.Color;
 using DinoGrr.Core.Builders;
@@ -21,39 +22,39 @@ namespace DinoGrr.Core
     /// Controls:
     /// - Arrow Keys: Move DinoGirl (Left/Right to walk, Up to jump)
     /// - G: Follow DinoGirl with camera
-    /// - N: Follow Random Dinosaur with camera
-    /// - M: Follow Targeting Dinosaur with camera
+    /// - N: Cycle through dinosaurs for camera following
+    /// - M: Follow a random dinosaur with camera
     /// - F: Free camera (stop following)
     /// - R: Restart game when game over
     /// - Escape: Exit game
+    /// 
+    /// Features:
+    /// - Expanded world (5000x800) with multiple dinosaur species
+    /// - Realistic dinosaur sizes and behaviors
+    /// - Different AI types: Aggressive, Defensive, Passive, Territorial
+    /// - 18 total dinosaurs across 10 different species
+    /// - Smart spawning system to prevent overlapping
     /// </summary>
     public class DinoGrrGame : Game
     {
         // The logical size of the virtual world (independent of actual window size)
-        private const int VIRTUAL_WIDTH = 2500;
-        private const int VIRTUAL_HEIGHT = 600;
+        // Expanded to accommodate more dinosaurs and give them room to move
+        private const int VIRTUAL_WIDTH = 5000;
+        private const int VIRTUAL_HEIGHT = 800;
 
         private GraphicsDeviceManager _graphics;
         private SpriteBatch _spriteBatch;
         private VerletSystem _verletSystem;
         private Camera2D _camera;
         private SoftBody _trampoline;
-        private NormalDinosaur _dino;
-        private NormalDinosaur _targetingDino;
-        private DinosaurRenderer _dinoRenderer;
-        private DinosaurRenderer _targetingDinoRenderer;
-        private Texture2D _dinoTexture;
+
+        // New dinosaur management system
+        private DinosaurManager _dinosaurManager;
 
         // DinoGirl character
         private DinoGirl _dinoGirl;
         private DinoGirlRenderer _dinoGirlRenderer;
         private Texture2D _dinoGirlTexture;
-
-        // Random movement for dinosaur
-        private RandomDinoMover _randomDinoMover;
-
-        // Targeting AI for the second dinosaur
-        private TargetingDinoAI _targetingDinoAI;
 
         // Parallax background
         private ParallaxBackground _parallaxBackground;
@@ -79,9 +80,10 @@ namespace DinoGrr.Core
             Content.RootDirectory = "Content";
             IsMouseVisible = true;
 
-            // Set default window size to match virtual resolution
-            _graphics.PreferredBackBufferWidth = VIRTUAL_WIDTH;
-            _graphics.PreferredBackBufferHeight = VIRTUAL_HEIGHT;
+            // Set default window size independent of virtual world size
+            // Use a reasonable window size that fits on most screens
+            _graphics.PreferredBackBufferWidth = 1280;
+            _graphics.PreferredBackBufferHeight = 720;
 
             // Allow the user to resize the window freely
             Window.AllowUserResizing = true;
@@ -115,9 +117,6 @@ namespace DinoGrr.Core
             Circle.Initialize(GraphicsDevice);
             Line.Initialize(GraphicsDevice);
 
-            // Load dinosaur texture
-            _dinoTexture = Content.Load<Texture2D>("Assets/Dinosaurs/triceratops_cyan");
-
             // Load DinoGirl texture (sprite sheet)
             _dinoGirlTexture = Content.Load<Texture2D>("Assets/DinoGirl/DinoGrr");
 
@@ -136,43 +135,25 @@ namespace DinoGrr.Core
             // Set a very smooth value for parallax - this will make it much less 'bouncy'
             _parallaxBackground.SmoothingFactor = 0.01f;
 
-            // Create the first dinosaur (positioned on the left side) - uses random movement
-            _dino = new NormalDinosaur(
-                _verletSystem,
-                new Vector2(VIRTUAL_WIDTH / 4, VIRTUAL_HEIGHT / 3),
-                120, 80,
-                stiffness: 0.005f,
-                name: "RandomDino"); // Set a lower speed limit for the dinosaur
-
-            // Create the second dinosaur (positioned on the right side) - uses targeting AI
-            _targetingDino = new NormalDinosaur(
-                _verletSystem,
-                new Vector2(VIRTUAL_WIDTH * 3 / 4, VIRTUAL_HEIGHT / 3),
-                120, 80,
-                stiffness: 0.005f,
-                name: "TargetingDino");
-
-            // Create DinoGirl (positioned on the right side)
+            // Create DinoGirl (positioned in the center)
             _dinoGirl = new DinoGirl(
                 _verletSystem,
-                new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3),
+                new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2),
                 100, 180, // Match sprite sheet dimensions
                 stiffness: 0.005f,
                 name: "DinoGirl",
                 maxSpeed: 1f); // Set a maximum speed limit for DinoGirl
 
-            // Initialize random movement for the first dinosaur
-                _randomDinoMover = new RandomDinoMover(_dino);
-
-            // Initialize targeting AI for the second dinosaur (1/3 of virtual world distance)
-            float maxTargetDistance = VIRTUAL_WIDTH / 3f;
-            _targetingDinoAI = new TargetingDinoAI(_targetingDino, _dinoGirl, maxTargetDistance);
+            // Initialize the dinosaur manager
+            _dinosaurManager = new DinosaurManager(_verletSystem, GraphicsDevice, _dinoGirl);
+            _dinosaurManager.LoadTextures(Content);
+            _dinosaurManager.PopulateWorld(VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
             // Create a trampoline floor at the bottom
             _trampoline = RectangleSoftBodyBuilder.CreateRectangle(
                 _verletSystem,
                 new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT - 100),
-                width: 500, height: 50,
+                width: 800, height: 50, // Made wider for the larger world
                 angle: 0,
                 pinTop: true,  // Pin the top corners of the trampoline
                 stiffness: 0.005f,
@@ -190,7 +171,7 @@ namespace DinoGrr.Core
             // Initialize the mouse drawing system
             _mouseDrawingSystem = new MouseDrawingSystem(_camera);
 
-            // Follow the DinoGirl instead of dinosaur
+            // Follow the DinoGirl
             _camera.Follow(_dinoGirl.Points[0]);
 
             // Reset the parallax background to the initial DinoGirl position
@@ -206,9 +187,7 @@ namespace DinoGrr.Core
                 _camera.SetViewport(GraphicsDevice.Viewport);
             };
 
-            // Create renderers
-            _dinoRenderer = new DinosaurRenderer(GraphicsDevice, _dinoTexture, _dino);
-            _targetingDinoRenderer = new DinosaurRenderer(GraphicsDevice, _dinoTexture, _targetingDino);
+            // Create DinoGirl renderer
             _dinoGirlRenderer = new DinoGirlRenderer(GraphicsDevice, _dinoGirlTexture, _dinoGirl);
 
             // Load UI font and create pixel texture
@@ -250,22 +229,31 @@ namespace DinoGrr.Core
             // Handle DinoGirl movement with arrow keys
             UpdateDinoGirlMovement();
 
-            // Update random dinosaur movement
-            _randomDinoMover.Update(dt);
+            // Update all dinosaurs
+            _dinosaurManager.Update(dt);
 
-            // Update targeting dinosaur AI
-            _targetingDinoAI.Update(dt);
-
-            // Press N to follow the random dinosaur
-            if (IsKeyPressed(Keys.N) && _dino.Points.Count > 0)
+            // Press N to cycle through dinosaurs for camera following
+            if (IsKeyPressed(Keys.N))
             {
-                _camera.Follow(_dino.Points[0]);
+                var dinosaurPoints = _dinosaurManager.GetAllDinosaurPoints().ToList();
+                if (dinosaurPoints.Count > 0)
+                {
+                    // Find currently followed dinosaur and switch to next one
+                    var currentIndex = dinosaurPoints.FindIndex(p => p == _camera.FollowTarget);
+                    var nextIndex = (currentIndex + 1) % dinosaurPoints.Count;
+                    _camera.Follow(dinosaurPoints[nextIndex]);
+                }
             }
 
-            // Press M to follow the targeting dinosaur
-            if (IsKeyPressed(Keys.M) && _targetingDino.Points.Count > 0)
+            // Press M to follow a random dinosaur
+            if (IsKeyPressed(Keys.M))
             {
-                _camera.Follow(_targetingDino.Points[0]);
+                var dinosaurPoints = _dinosaurManager.GetAllDinosaurPoints().ToList();
+                if (dinosaurPoints.Count > 0)
+                {
+                    var randomIndex = new Random().Next(dinosaurPoints.Count);
+                    _camera.Follow(dinosaurPoints[randomIndex]);
+                }
             }
 
             // Press G to follow the DinoGirl
@@ -311,8 +299,6 @@ namespace DinoGrr.Core
             _dinoGirl.Update(dt);
 
             // Update renderers
-            _dinoRenderer.Update();
-            _targetingDinoRenderer.Update();
             _dinoGirlRenderer.Update(dt); // Pass dt for animation timing
 
             base.Update(gameTime);
@@ -408,9 +394,10 @@ namespace DinoGrr.Core
 
             _spriteBatch.End();
 
-            // Draw the characters with their own SpriteBatch begins/ends
-            _dinoRenderer.Draw(_camera);
-            _targetingDinoRenderer.Draw(_camera);
+            // Draw all dinosaurs using the manager
+            _dinosaurManager.Draw(_camera);
+
+            // Draw DinoGirl
             _dinoGirlRenderer.Draw(_camera);
 
             // Draw the UI on top (without camera transformation)
@@ -490,8 +477,8 @@ namespace DinoGrr.Core
             // Reset DinoGirl's life points and status
             _dinoGirl.Reset();
 
-            // Reset DinoGirl's position
-            Vector2 dinoGirlStartPosition = new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 3);
+            // Reset DinoGirl's position to center of the world
+            Vector2 dinoGirlStartPosition = new Vector2(VIRTUAL_WIDTH / 2, VIRTUAL_HEIGHT / 2);
             for (int i = 0; i < _dinoGirl.Points.Count; i++)
             {
                 var point = _dinoGirl.Points[i];
@@ -505,33 +492,8 @@ namespace DinoGrr.Core
                 point.PreviousPosition = point.Position; // Reset velocity
             }
 
-            // Reset random dinosaur position
-            Vector2 randomDinoStartPosition = new Vector2(VIRTUAL_WIDTH / 4, VIRTUAL_HEIGHT / 3);
-            for (int i = 0; i < _dino.Points.Count; i++)
-            {
-                var point = _dino.Points[i];
-                Vector2 offset = Vector2.Zero;
-                if (i == 1) offset = new Vector2(0, -40); // Top point
-                else if (i == 2) offset = new Vector2(60, -40); // Top-right
-                else if (i == 3) offset = new Vector2(60, 0); // Bottom-right
-
-                point.Position = randomDinoStartPosition + offset;
-                point.PreviousPosition = point.Position; // Reset velocity
-            }
-
-            // Reset targeting dinosaur position
-            Vector2 targetingDinoStartPosition = new Vector2(VIRTUAL_WIDTH * 3 / 4, VIRTUAL_HEIGHT / 3);
-            for (int i = 0; i < _targetingDino.Points.Count; i++)
-            {
-                var point = _targetingDino.Points[i];
-                Vector2 offset = Vector2.Zero;
-                if (i == 1) offset = new Vector2(0, -40); // Top point
-                else if (i == 2) offset = new Vector2(60, -40); // Top-right
-                else if (i == 3) offset = new Vector2(60, 0); // Bottom-right
-
-                point.Position = targetingDinoStartPosition + offset;
-                point.PreviousPosition = point.Position; // Reset velocity
-            }
+            // Reset all dinosaurs to their original positions (handled by the manager)
+            _dinosaurManager.ResetPositions();
         }
     }
 }
