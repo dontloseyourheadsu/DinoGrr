@@ -92,12 +92,14 @@ public sealed class Camera2D
     }
 
     /// <summary>
-    /// Recalculates the base zoom to ensure the virtual world fits the viewport.
-    /// Maintains aspect ratio by choosing the smaller scale factor.
+    /// Recalculates the base zoom to provide a close-up view of the action.
+    /// Instead of fitting the entire world, we use a fixed zoom level for better gameplay.
     /// </summary>
     private void RecalculateBaseZoom()
     {
-        _baseZoom = MathF.Min(_vp.Width / (float)_virtualW, _vp.Height / (float)_virtualH);
+        // Set a fixed zoom level that provides a good close-up view
+        // This will show roughly 400x300 pixels of the virtual world on a 1280x720 screen
+        _baseZoom = 1.0f; // Increased for even closer view - adjust this value to get the desired zoom level
     }
 
     /// <summary>

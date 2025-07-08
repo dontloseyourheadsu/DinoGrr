@@ -142,8 +142,8 @@ namespace DinoGrr.Core
             // Initialize the camera with current viewport and virtual size
             _camera = new Camera2D(_graphics.GraphicsDevice.Viewport, VIRTUAL_WIDTH, VIRTUAL_HEIGHT);
 
-            // Set initial camera follow smoothing
-            _camera.FollowSmoothing = 0.05f;
+            // Set initial camera follow smoothing - make it more responsive for better gameplay
+            _camera.FollowSmoothing = 0.15f; // Increased from 0.05f for more responsive following
 
             // Initialize the mouse drawing system
             _mouseDrawingSystem = new MouseDrawingSystem(_camera);
