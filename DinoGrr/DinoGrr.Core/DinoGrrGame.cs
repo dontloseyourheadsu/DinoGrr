@@ -41,11 +41,22 @@ namespace DinoGrr.Core
 
         // UI System
         private MainMenu _mainMenu;
+        private OptionsMenu _optionsMenu;
         private SpriteFont _font;
         private Texture2D _pixelTexture;
 
         // Gameplay state
         private GameplayState _gameplayState;
+
+        /// <summary>
+        /// Gets the current music volume setting (0.0 to 1.0).
+        /// </summary>
+        public float MusicVolume => _optionsMenu?.MusicVolume ?? 0.5f;
+
+        /// <summary>
+        /// Gets the current sound volume setting (0.0 to 1.0).
+        /// </summary>
+        public float SoundVolume => _optionsMenu?.SoundVolume ?? 0.5f;
 
         /// <summary>
         /// Constructs the game and initializes graphics settings.
@@ -93,6 +104,10 @@ namespace DinoGrr.Core
             // Initialize main menu
             _mainMenu = new MainMenu(_spriteBatch, _font, _pixelTexture, GraphicsDevice);
             _mainMenu.OnMenuOptionSelected += HandleMenuSelection;
+
+            // Initialize options menu
+            _optionsMenu = new OptionsMenu(_spriteBatch, _font, _pixelTexture, GraphicsDevice);
+            _optionsMenu.OnBackClicked += () => _currentGameState = GameState.MainMenu;
 
             // Initialize gameplay state
             _gameplayState = new GameplayState(_graphics, _spriteBatch, this);
@@ -171,7 +186,7 @@ namespace DinoGrr.Core
                     // TODO: Implement level selector
                     break;
                 case GameState.Options:
-                    // TODO: Implement options menu
+                    _optionsMenu.Update(gameTime);
                     break;
             }
 
@@ -203,10 +218,8 @@ namespace DinoGrr.Core
                     _spriteBatch.End();
                     break;
                 case GameState.Options:
-                    // TODO: Draw options menu
-                    GraphicsDevice.Clear(Color.Green);
                     _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-                    _spriteBatch.DrawString(_font, "Options - Press Escape to return to main menu", new Vector2(100, 100), Color.White);
+                    _optionsMenu.Draw();
                     _spriteBatch.End();
                     break;
             }
