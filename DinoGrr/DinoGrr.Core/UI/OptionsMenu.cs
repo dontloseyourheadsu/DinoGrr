@@ -123,7 +123,7 @@ namespace DinoGrr.Core.UI
             bool mouseOverSlider = sliderRect.Contains(mousePosition);
 
             // Start dragging
-            if (mouseOverSlider && _currentMouseState.LeftButton == ButtonState.Pressed && 
+            if (mouseOverSlider && _currentMouseState.LeftButton == ButtonState.Pressed &&
                 _previousMouseState.LeftButton == ButtonState.Released)
             {
                 isDragging = true;
@@ -267,7 +267,7 @@ namespace DinoGrr.Core.UI
         /// </summary>
         private bool IsMouseClicked()
         {
-            return _currentMouseState.LeftButton == ButtonState.Pressed && 
+            return _currentMouseState.LeftButton == ButtonState.Pressed &&
                    _previousMouseState.LeftButton == ButtonState.Released;
         }
     }
