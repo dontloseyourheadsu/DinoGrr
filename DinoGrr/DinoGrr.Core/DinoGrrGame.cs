@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using DinoGrr.Core.UI;
+using DinoGrr.Core.Database;
+using DinoGrr.Core.Database.Repositories;
 
 namespace DinoGrr.Core
 {
@@ -42,8 +44,12 @@ namespace DinoGrr.Core
         // UI System
         private MainMenu _mainMenu;
         private OptionsMenu _optionsMenu;
+        private SimpleLevelSelector _levelSelector;
         private SpriteFont _font;
         private Texture2D _pixelTexture;
+
+        // Database System (manual dependency injection)
+        // Removed for now - using simple level selector
 
         // Gameplay state
         private GameplayState _gameplayState;
@@ -109,6 +115,11 @@ namespace DinoGrr.Core
             _optionsMenu = new OptionsMenu(_spriteBatch, _font, _pixelTexture, GraphicsDevice);
             _optionsMenu.OnBackClicked += () => _currentGameState = GameState.MainMenu;
 
+            // Initialize level selector
+            _levelSelector = new SimpleLevelSelector(_spriteBatch, _font, _pixelTexture, GraphicsDevice);
+            _levelSelector.OnBackClicked += () => _currentGameState = GameState.MainMenu;
+            _levelSelector.OnLevelSelected += HandleLevelSelection;
+
             // Initialize gameplay state
             _gameplayState = new GameplayState(_graphics, _spriteBatch, this);
             _gameplayState.Initialize();
@@ -144,6 +155,17 @@ namespace DinoGrr.Core
                     Exit();
                     break;
             }
+        }
+
+        /// <summary>
+        /// Handles level selection from the level selector.
+        /// </summary>
+        /// <param name="levelId">The ID of the selected level.</param>
+        private void HandleLevelSelection(int levelId)
+        {
+            // TODO: Start the specific level
+            // For now, just start the regular gameplay
+            _currentGameState = GameState.Playing;
         }
 
         /// <summary>
@@ -183,7 +205,7 @@ namespace DinoGrr.Core
                     _gameplayState.Update(gameTime);
                     break;
                 case GameState.LevelSelector:
-                    // TODO: Implement level selector
+                    _levelSelector.Update(gameTime);
                     break;
                 case GameState.Options:
                     _optionsMenu.Update(gameTime);
@@ -211,10 +233,8 @@ namespace DinoGrr.Core
                     _gameplayState.Draw(gameTime);
                     break;
                 case GameState.LevelSelector:
-                    // TODO: Draw level selector
-                    GraphicsDevice.Clear(Color.Blue);
                     _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
-                    _spriteBatch.DrawString(_font, "Level Selector - Press Escape to return to main menu", new Vector2(100, 100), Color.White);
+                    _levelSelector.Draw();
                     _spriteBatch.End();
                     break;
                 case GameState.Options:
@@ -235,6 +255,15 @@ namespace DinoGrr.Core
         private bool IsKeyPressed(Keys key)
         {
             return _currKeyboard.IsKeyDown(key) && _prevKeyboard.IsKeyUp(key);
+        }
+
+        /// <summary>
+        /// Called when the game is exiting to save any pending data.
+        /// </summary>
+        protected override void OnExiting(object sender, ExitingEventArgs args)
+        {
+            // No longer saving level progress with simple level selector
+            base.OnExiting(sender, args);
         }
     }
 }
