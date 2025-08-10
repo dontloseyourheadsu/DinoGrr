@@ -45,6 +45,7 @@ namespace DinoGrr.Core
         private MainMenu _mainMenu;
         private OptionsMenu _optionsMenu;
         private SimpleLevelSelector _levelSelector;
+        private LevelEditorSelect _levelEditorSelect;
         private SpriteFont _font;
         private Texture2D _pixelTexture;
 
@@ -120,6 +121,10 @@ namespace DinoGrr.Core
             _levelSelector.OnBackClicked += () => _currentGameState = GameState.MainMenu;
             _levelSelector.OnLevelSelected += HandleLevelSelection;
 
+            // Initialize level editor select
+            _levelEditorSelect = new LevelEditorSelect(_spriteBatch, _font, _pixelTexture, GraphicsDevice);
+            _levelEditorSelect.OnBackClicked += () => _currentGameState = GameState.MainMenu;
+
             // Initialize gameplay state
             _gameplayState = new GameplayState(_graphics, _spriteBatch, this);
             _gameplayState.Initialize();
@@ -148,10 +153,13 @@ namespace DinoGrr.Core
                 case 1: // Level Selector
                     _currentGameState = GameState.LevelSelector;
                     break;
-                case 2: // Options
+                case 2: // Level Editor
+                    _currentGameState = GameState.LevelEditorSelect;
+                    break;
+                case 3: // Options
                     _currentGameState = GameState.Options;
                     break;
-                case 3: // Exit
+                case 4: // Exit
                     Exit();
                     break;
             }
@@ -207,6 +215,9 @@ namespace DinoGrr.Core
                 case GameState.LevelSelector:
                     _levelSelector.Update(gameTime);
                     break;
+                case GameState.LevelEditorSelect:
+                    _levelEditorSelect.Update(gameTime);
+                    break;
                 case GameState.Options:
                     _optionsMenu.Update(gameTime);
                     break;
@@ -235,6 +246,11 @@ namespace DinoGrr.Core
                 case GameState.LevelSelector:
                     _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
                     _levelSelector.Draw();
+                    _spriteBatch.End();
+                    break;
+                case GameState.LevelEditorSelect:
+                    _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+                    _levelEditorSelect.Draw();
                     _spriteBatch.End();
                     break;
                 case GameState.Options:

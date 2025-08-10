@@ -54,6 +54,7 @@ namespace DinoGrr.Core.UI
             {
                 "Play",
                 "Level Selector",
+                "Level Editor",
                 "Options",
                 "Exit"
             };
