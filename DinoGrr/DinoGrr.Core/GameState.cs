@@ -9,6 +9,7 @@ namespace DinoGrr.Core
         Playing,
         LevelSelector,
         LevelEditorSelect,
+        LevelEditor,
         Options
     }
 }

@@ -46,6 +46,7 @@ namespace DinoGrr.Core
         private OptionsMenu _optionsMenu;
         private SimpleLevelSelector _levelSelector;
         private LevelEditorSelect _levelEditorSelect;
+        private LevelEditor _levelEditor;
         private SpriteFont _font;
         private Texture2D _pixelTexture;
 
@@ -124,6 +125,7 @@ namespace DinoGrr.Core
             // Initialize level editor select
             _levelEditorSelect = new LevelEditorSelect(_spriteBatch, _font, _pixelTexture, GraphicsDevice);
             _levelEditorSelect.OnBackClicked += () => _currentGameState = GameState.MainMenu;
+            _levelEditorSelect.OnEditLevel += HandleEditLevel;
 
             // Initialize gameplay state
             _gameplayState = new GameplayState(_graphics, _spriteBatch, this);
@@ -177,6 +179,20 @@ namespace DinoGrr.Core
         }
 
         /// <summary>
+        /// Handles editing a level in the level editor.
+        /// </summary>
+        /// <param name="editorData">The level data to edit.</param>
+        private void HandleEditLevel(Database.Models.LevelEditorData editorData)
+        {
+            // Create level editor instance
+            _levelEditor = new LevelEditor(_spriteBatch, _font, _pixelTexture, GraphicsDevice, editorData);
+            _levelEditor.OnExitEditor += () => _currentGameState = GameState.LevelEditorSelect;
+
+            // Switch to level editor state
+            _currentGameState = GameState.LevelEditor;
+        }
+
+        /// <summary>
         /// Updates the game state: handles input and current game state.
         /// </summary>
         /// <param name="gameTime">Time since last update.</param>
@@ -218,6 +234,9 @@ namespace DinoGrr.Core
                 case GameState.LevelEditorSelect:
                     _levelEditorSelect.Update(gameTime);
                     break;
+                case GameState.LevelEditor:
+                    _levelEditor?.Update(gameTime);
+                    break;
                 case GameState.Options:
                     _optionsMenu.Update(gameTime);
                     break;
@@ -251,6 +270,11 @@ namespace DinoGrr.Core
                 case GameState.LevelEditorSelect:
                     _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
                     _levelEditorSelect.Draw();
+                    _spriteBatch.End();
+                    break;
+                case GameState.LevelEditor:
+                    _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+                    _levelEditor?.Draw();
                     _spriteBatch.End();
                     break;
                 case GameState.Options:
