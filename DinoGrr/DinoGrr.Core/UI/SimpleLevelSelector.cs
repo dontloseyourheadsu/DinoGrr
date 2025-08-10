@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework.Graphics;
 using Microsoft.Xna.Framework.Input;
 using System;
 using System.Collections.Generic;
+using DinoGrr.Core.Database;
+using DinoGrr.Core.Database.Repositories;
 
 namespace DinoGrr.Core.UI
 {
@@ -20,6 +22,7 @@ namespace DinoGrr.Core.UI
         private KeyboardState _currentKeyboardState;
 
         private readonly List<string> _menuOptions;
+        private IGameLevelsRepository _levelsRepository;
         private int _selectedIndex = 0;
 
         // UI Colors
@@ -60,14 +63,33 @@ namespace DinoGrr.Core.UI
 
             _previousKeyboardState = Keyboard.GetState();
 
-            // Create simple menu options (no levels for now, just empty placeholders and back)
+            // Initialize repository and read levels with try/catch; log to console
+            try
+            {
+                var factory = new DatabaseFactory();
+                _levelsRepository = new GameLevelsRepository(factory);
+                var levels = _levelsRepository.GetAllLevels();
+                if (levels == null || levels.Count == 0)
+                {
+                    Console.WriteLine("SimpleLevelSelector: no levels found");
+                }
+                else
+                {
+                    Console.WriteLine($"SimpleLevelSelector: found {levels.Count} levels:");
+                    foreach (var lvl in levels)
+                    {
+                        Console.WriteLine($" - #{lvl.Id}: {lvl.Name}");
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"SimpleLevelSelector: failed to load levels: {ex.Message}");
+            }
+
+            // Keep existing placeholder menu layout for now
             _menuOptions = new List<string>
             {
-                "Level 1 - [Coming Soon]",
-                "Level 2 - [Coming Soon]",
-                "Level 3 - [Coming Soon]",
-                "Level 4 - [Coming Soon]",
-                "Level 5 - [Coming Soon]",
                 "Back"
             };
         }
