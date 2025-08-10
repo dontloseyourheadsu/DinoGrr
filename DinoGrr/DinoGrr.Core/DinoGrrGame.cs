@@ -45,6 +45,8 @@ namespace DinoGrr.Core
         private MainMenu _mainMenu;
         private OptionsMenu _optionsMenu;
         private SimpleLevelSelector _levelSelector;
+        private LevelEditorSelect _levelEditorSelect;
+        private LevelEditor _levelEditor;
         private SpriteFont _font;
         private Texture2D _pixelTexture;
 
@@ -120,6 +122,11 @@ namespace DinoGrr.Core
             _levelSelector.OnBackClicked += () => _currentGameState = GameState.MainMenu;
             _levelSelector.OnLevelSelected += HandleLevelSelection;
 
+            // Initialize level editor select
+            _levelEditorSelect = new LevelEditorSelect(_spriteBatch, _font, _pixelTexture, GraphicsDevice);
+            _levelEditorSelect.OnBackClicked += () => _currentGameState = GameState.MainMenu;
+            _levelEditorSelect.OnEditLevel += HandleEditLevel;
+
             // Initialize gameplay state
             _gameplayState = new GameplayState(_graphics, _spriteBatch, this);
             _gameplayState.Initialize();
@@ -148,10 +155,13 @@ namespace DinoGrr.Core
                 case 1: // Level Selector
                     _currentGameState = GameState.LevelSelector;
                     break;
-                case 2: // Options
+                case 2: // Level Editor
+                    _currentGameState = GameState.LevelEditorSelect;
+                    break;
+                case 3: // Options
                     _currentGameState = GameState.Options;
                     break;
-                case 3: // Exit
+                case 4: // Exit
                     Exit();
                     break;
             }
@@ -166,6 +176,20 @@ namespace DinoGrr.Core
             // TODO: Start the specific level
             // For now, just start the regular gameplay
             _currentGameState = GameState.Playing;
+        }
+
+        /// <summary>
+        /// Handles editing a level in the level editor.
+        /// </summary>
+        /// <param name="editorData">The level data to edit.</param>
+        private void HandleEditLevel(Database.Models.LevelEditorData editorData)
+        {
+            // Create level editor instance
+            _levelEditor = new LevelEditor(_spriteBatch, _font, _pixelTexture, GraphicsDevice, editorData);
+            _levelEditor.OnExitEditor += () => _currentGameState = GameState.LevelEditorSelect;
+
+            // Switch to level editor state
+            _currentGameState = GameState.LevelEditor;
         }
 
         /// <summary>
@@ -207,6 +231,12 @@ namespace DinoGrr.Core
                 case GameState.LevelSelector:
                     _levelSelector.Update(gameTime);
                     break;
+                case GameState.LevelEditorSelect:
+                    _levelEditorSelect.Update(gameTime);
+                    break;
+                case GameState.LevelEditor:
+                    _levelEditor?.Update(gameTime);
+                    break;
                 case GameState.Options:
                     _optionsMenu.Update(gameTime);
                     break;
@@ -235,6 +265,16 @@ namespace DinoGrr.Core
                 case GameState.LevelSelector:
                     _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
                     _levelSelector.Draw();
+                    _spriteBatch.End();
+                    break;
+                case GameState.LevelEditorSelect:
+                    _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+                    _levelEditorSelect.Draw();
+                    _spriteBatch.End();
+                    break;
+                case GameState.LevelEditor:
+                    _spriteBatch.Begin(samplerState: SamplerState.PointClamp);
+                    _levelEditor?.Draw();
                     _spriteBatch.End();
                     break;
                 case GameState.Options:
