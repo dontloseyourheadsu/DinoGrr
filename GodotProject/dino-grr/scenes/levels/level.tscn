@@ -1,3 +1,164 @@
-[gd_scene format=3 uid="uid://cd31v5kt6jwyn"]
+[gd_scene load_steps=20 format=3 uid="uid://cd31v5kt6jwyn"]
+
+[ext_resource type="Texture2D" uid="uid://cupffae44ggbb" path="res://maps/backlayer/assets/mountains.png" id="1_377w7"]
+[ext_resource type="Script" uid="uid://vliwl1atifa5" path="res://scenes/levels/dino_girl.gd" id="2_b2cq8"]
+[ext_resource type="Texture2D" uid="uid://ck4hvbwghd7gr" path="res://dinogirl/sprites/dino_girl_spritesheet.png" id="2_bovvr"]
+[ext_resource type="Texture2D" uid="uid://3c17xp7uw18x" path="res://maps/frontlayer/assets/plants_background.png" id="2_xb4v1"]
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_qogh7"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(117, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xfk5q"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(468, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_8iyoh"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(819, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_b2cq8"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(0, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_xb4v1"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(117, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_urvlt"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(234, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_d4w6o"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(351, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_mbbpy"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(468, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_ouxo3"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(585, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_icy5c"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(702, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_rmjfq"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(819, 0, 117, 190)
+
+[sub_resource type="AtlasTexture" id="AtlasTexture_7pb6i"]
+atlas = ExtResource("2_bovvr")
+region = Rect2(0, 190, 117, 190)
+
+[sub_resource type="SpriteFrames" id="SpriteFrames_7pb6i"]
+animations = [{
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_qogh7")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xfk5q")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_8iyoh")
+}],
+"loop": false,
+"name": &"jump",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_b2cq8")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_xb4v1")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_urvlt")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_d4w6o")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_mbbpy")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_ouxo3")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_icy5c")
+}, {
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_rmjfq")
+}],
+"loop": true,
+"name": &"run",
+"speed": 5.0
+}, {
+"frames": [{
+"duration": 1.0,
+"texture": SubResource("AtlasTexture_7pb6i")
+}],
+"loop": false,
+"name": &"stand",
+"speed": 5.0
+}]
+
+[sub_resource type="CapsuleShape2D" id="CapsuleShape2D_xb4v1"]
+
+[sub_resource type="WorldBoundaryShape2D" id="WorldBoundaryShape2D_bovvr"]
+distance = -321.0
 
 [node name="GameLevel" type="Node2D"]
+
+[node name="Node2D" type="Node2D" parent="."]
+position = Vector2(0, -30)
+
+[node name="Background1" type="Parallax2D" parent="Node2D"]
+scroll_scale = Vector2(0.2, 0.2)
+scroll_offset = Vector2(600, 0)
+repeat_size = Vector2(3000, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Node2D/Background1"]
+position = Vector2(0, -400)
+scale = Vector2(1.5, 2.016)
+texture = ExtResource("1_377w7")
+
+[node name="Background2" type="Parallax2D" parent="Node2D"]
+scroll_scale = Vector2(0.5, 0.5)
+repeat_size = Vector2(1800, 0)
+
+[node name="Sprite2D" type="Sprite2D" parent="Node2D/Background2"]
+position = Vector2(0, -106)
+scale = Vector2(0.6468293, 0.8191666)
+texture = ExtResource("2_xb4v1")
+
+[node name="DinoGirl" type="CharacterBody2D" parent="."]
+position = Vector2(0, 250)
+script = ExtResource("2_b2cq8")
+
+[node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="DinoGirl"]
+scale = Vector2(0.5, 0.5)
+sprite_frames = SubResource("SpriteFrames_7pb6i")
+animation = &"jump"
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="DinoGirl"]
+position = Vector2(0, 6)
+scale = Vector2(1.5, 2.75)
+shape = SubResource("CapsuleShape2D_xb4v1")
+
+[node name="Camera2D" type="Camera2D" parent="DinoGirl"]
+offset = Vector2(0, -50)
+zoom = Vector2(2, 2)
+
+[node name="StaticBody2D" type="StaticBody2D" parent="."]
+
+[node name="CollisionShape2D" type="CollisionShape2D" parent="StaticBody2D"]
+modulate = Color(0, 0, 0, 1)
+self_modulate = Color(0, 0, 0, 1)
+position = Vector2(0, -7)
+shape = SubResource("WorldBoundaryShape2D_bovvr")
+debug_color = Color(0, 0, 0, 0.41960785)
