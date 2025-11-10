@@ -1,0 +1,9 @@
+[gd_scene load_steps=2 format=3 uid="uid://bo34k8thsv28a"]
+
+[ext_resource type="Script" uid="uid://cvs5vsp85ttt1" path="res://features/draw_mechanic/line_polygon/draw_line_polygon.gd" id="1_lqtq4"]
+
+[node name="LinePolygon" type="RigidBody2D"]
+script = ExtResource("1_lqtq4")
+
+[node name="Line2D" type="Line2D" parent="."]
+default_color = Color(1, 0.7490196, 0, 1)
