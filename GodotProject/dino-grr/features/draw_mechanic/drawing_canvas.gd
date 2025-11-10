@@ -5,7 +5,7 @@ extends Node2D
 
 @export var min_point_distance: float = 4.0
 @export var line_width: float = 24.0
-@export var line_color: Color = Color("FFBF00")
+@export var line_color: Color = Color8(255, 191, 0, 255) # FFBF00
 @export var hide_line_after_finalize: bool = true
 @export var line_polygon_scene: PackedScene = preload("res://features/draw_mechanic/line_polygon/line_polygon.tscn")
 
@@ -38,6 +38,8 @@ func _begin_draw() -> void:
 	# Configure the visible line
 	if line_width > 0:
 		_current_line.width = line_width
+	# Ensure no gradient overrides the default color
+	_current_line.gradient = null
 	_current_line.default_color = line_color
 	_current_line.points = PackedVector2Array()
 	_current_line.visible = true
