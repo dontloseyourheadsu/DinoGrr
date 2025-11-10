@@ -13,6 +13,7 @@ extends RigidBody2D
 
 @export var use_line_width: bool = true # If true, use Line2D.width / 2 for polygon thickness
 @export var default_half_width: float = 8.0 # Fallback half-width when Line2D.width is 0
+@export var collision_thickness_scale: float = 1.5 # Multiplier to inflate collision vs visual width
 @export var clear_previous: bool = true # Remove previously generated Polygon2D / CollisionPolygon2D
 
 @onready var _line: Line2D = $Line2D
@@ -38,6 +39,7 @@ func build_from_line() -> void:
 		return
 
 	var half_width: float = _line.width / 2.0 if (use_line_width and _line.width > 0) else default_half_width
+	half_width *= collision_thickness_scale
 	var polys: Array = Geometry2D.offset_polyline(pts, half_width)
 
 	if polys.is_empty():
