@@ -19,6 +19,10 @@ config/icon="res://icon.svg"
 window/size/viewport_width=600
 window/size/viewport_height=600
 
+[editor_plugins]
+
+enabled=PackedStringArray("res://addons/softbody2d/plugin.cfg")
+
 [input]
 
 move_right={
