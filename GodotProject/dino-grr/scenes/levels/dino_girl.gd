@@ -19,6 +19,10 @@ var life: int = 0 # Current life in hearts; initialized on _ready to max_life.
 @export var heart_scale: float = 1.0
 @export var heart_spacing: float = 4.0 # Extra pixels between hearts beyond texture width
 
+# Drawing points (TintBar represents these)
+@export var max_draw_points: int = 150
+var draw_points: int = 0
+
 # Input actions used by this controller. Configure these in Project Settings > Input Map.
 const INPUT_LEFT := "move_left"
 const INPUT_RIGHT := "move_right"
@@ -26,6 +30,7 @@ const INPUT_JUMP := "jump"
 
 @onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
 @onready var life_container: Node2D = $LifeContainer
+@onready var tint_bar: ProgressBar = $TintBar
 
 # Gravity from project settings for consistency across scenes.
 var gravity: float = ProjectSettings.get_setting("physics/2d/default_gravity") as float
@@ -37,6 +42,9 @@ func _ready() -> void:
 	# Initialize life in hearts and draw heart UI.
 	life = max_life
 	_setup_hearts()
+
+	# Initialize drawing points (TintBar configured in scene file)
+	draw_points = max_draw_points
 
 func _physics_process(delta: float) -> void:
 	# Apply gravity when airborne.
@@ -85,6 +93,18 @@ func update_animation(direction_x: float) -> void:
 func set_life(new_value: int) -> void:
 	life = int(clamp(new_value, 0, max_life))
 	_update_hearts_visibility()
+
+# Public helper for drawing points
+func set_draw_points(new_value: int) -> void:
+	draw_points = int(clamp(new_value, 0, max_draw_points))
+	if is_instance_valid(tint_bar):
+		tint_bar.value = draw_points
+
+func consume_draw_point() -> bool:
+	if draw_points > 0:
+		set_draw_points(draw_points - 1)
+		return true
+	return false
 
 # Internal: create or refresh heart sprites under LifeContainer
 func _setup_hearts() -> void:
