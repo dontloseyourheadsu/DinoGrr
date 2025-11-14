@@ -11,6 +11,13 @@ extends CharacterBody2D
 
 @export var speed: float = 800.0 # Horizontal speed in pixels/second.
 @export var jump_velocity: float = -600.0 # Negative to move up in Godot's Y-down coordinates.
+@export var max_life: int = 4 # Number of hearts representing DinoGirl's life.
+var life: int = 0 # Current life in hearts; initialized on _ready to max_life.
+
+# Heart UI
+@export var heart_texture: Texture2D # Assign in inspector; falls back to res://dinogirl/sprites/heart.png if empty.
+@export var heart_scale: float = 1.0
+@export var heart_spacing: float = 4.0 # Extra pixels between hearts beyond texture width
 
 # Input actions used by this controller. Configure these in Project Settings > Input Map.
 const INPUT_LEFT := "move_left"
@@ -18,6 +25,7 @@ const INPUT_RIGHT := "move_right"
 const INPUT_JUMP := "jump"
 
 @onready var animated_sprite: AnimatedSprite2D = $AnimatedSprite2D
+@onready var life_container: Node2D = $LifeContainer
 
 # Gravity from project settings for consistency across scenes.
 var gravity: float = ProjectSettings.get_setting("physics/2d/default_gravity") as float
@@ -25,6 +33,10 @@ var gravity: float = ProjectSettings.get_setting("physics/2d/default_gravity") a
 func _ready() -> void:
 	# Start idle.
 	animated_sprite.play("stand")
+
+	# Initialize life in hearts and draw heart UI.
+	life = max_life
+	_setup_hearts()
 
 func _physics_process(delta: float) -> void:
 	# Apply gravity when airborne.
@@ -68,3 +80,50 @@ func update_animation(direction_x: float) -> void:
 	else:
 		if animated_sprite.animation != "stand":
 			animated_sprite.play("stand")
+
+# Public helper to update life (in hearts) and keep the UI in sync.
+func set_life(new_value: int) -> void:
+	life = int(clamp(new_value, 0, max_life))
+	_update_hearts_visibility()
+
+# Internal: create or refresh heart sprites under LifeContainer
+func _setup_hearts() -> void:
+	if not is_instance_valid(life_container):
+		return
+	# Resolve texture if not assigned in inspector.
+	if heart_texture == null:
+		var tex: Resource = load("res://dinogirl/sprites/heart.png")
+		if tex is Texture2D:
+			heart_texture = tex
+		else:
+			push_warning("Heart texture not set and fallback not found at res://dinogirl/sprites/heart.png")
+
+	# Clear previous heart nodes.
+	for c in life_container.get_children():
+		c.queue_free()
+
+	if heart_texture == null:
+		return
+
+	var tex_size: Vector2 = Vector2(heart_texture.get_size())
+	var step_x: float = tex_size.x * heart_scale + heart_spacing
+	# Draw hearts left-to-right anchored at LifeContainer's origin.
+	for i in range(max_life):
+		var spr := Sprite2D.new()
+		spr.texture = heart_texture
+		spr.centered = false
+		spr.position = Vector2(i * step_x, 0)
+		spr.scale = Vector2(heart_scale, heart_scale)
+		life_container.add_child(spr)
+
+	_update_hearts_visibility()
+
+# Internal: dim hearts beyond current life
+func _update_hearts_visibility() -> void:
+	if not is_instance_valid(life_container):
+		return
+	var i := 0
+	for child in life_container.get_children():
+		if child is Sprite2D:
+			(child as Sprite2D).modulate.a = 1.0 if i < life else 0.25
+			i += 1

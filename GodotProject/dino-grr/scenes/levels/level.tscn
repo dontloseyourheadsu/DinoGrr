@@ -1,9 +1,10 @@
-[gd_scene load_steps=20 format=3 uid="uid://cd31v5kt6jwyn"]
+[gd_scene load_steps=21 format=3 uid="uid://cd31v5kt6jwyn"]
 
 [ext_resource type="Texture2D" uid="uid://cupffae44ggbb" path="res://maps/backlayer/assets/mountains.png" id="1_377w7"]
 [ext_resource type="Script" uid="uid://vliwl1atifa5" path="res://scenes/levels/dino_girl.gd" id="2_b2cq8"]
 [ext_resource type="Texture2D" uid="uid://ck4hvbwghd7gr" path="res://dinogirl/sprites/dino_girl_spritesheet.png" id="2_bovvr"]
 [ext_resource type="Texture2D" uid="uid://3c17xp7uw18x" path="res://maps/frontlayer/assets/plants_background.png" id="2_xb4v1"]
+[ext_resource type="Texture2D" uid="uid://cowxpyqojgrmf" path="res://dinogirl/utilities/heart/dino-heart.png" id="4_urvlt"]
 
 [sub_resource type="AtlasTexture" id="AtlasTexture_qogh7"]
 atlas = ExtResource("2_bovvr")
@@ -139,6 +140,9 @@ texture = ExtResource("2_xb4v1")
 [node name="DinoGirl" type="CharacterBody2D" parent="."]
 position = Vector2(0, 250)
 script = ExtResource("2_b2cq8")
+heart_texture = ExtResource("4_urvlt")
+heart_scale = 0.35
+heart_spacing = 2.0
 
 [node name="AnimatedSprite2D" type="AnimatedSprite2D" parent="DinoGirl"]
 scale = Vector2(0.5, 0.5)
@@ -152,7 +156,18 @@ shape = SubResource("CapsuleShape2D_xb4v1")
 
 [node name="Camera2D" type="Camera2D" parent="DinoGirl"]
 offset = Vector2(0, -50)
-zoom = Vector2(2, 2)
+zoom = Vector2(1.5, 1.5)
+
+[node name="TintBar" type="ProgressBar" parent="DinoGirl"]
+offset_left = -188.0
+offset_top = -242.0
+offset_right = -86.0
+offset_bottom = -222.0
+step = 100.0
+show_percentage = false
+
+[node name="LifeContainer" type="Node2D" parent="DinoGirl"]
+position = Vector2(78, -235)
 
 [node name="StaticBody2D" type="StaticBody2D" parent="."]
 

@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://o5etkfekcvar"
-path="res://.godot/imported/softbody2d_banner.jpg-bc7627573dd9123baa6a5b33136e178b.ctex"
+uid="uid://cowxpyqojgrmf"
+path="res://.godot/imported/dino-heart.png-c86d6d3b89e869932917301188eeeeac.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://samples/softbody2d/softbody2d_banner.jpg"
-dest_files=["res://.godot/imported/softbody2d_banner.jpg-bc7627573dd9123baa6a5b33136e178b.ctex"]
+source_file="res://dinogirl/utilities/heart/dino-heart.png"
+dest_files=["res://.godot/imported/dino-heart.png-c86d6d3b89e869932917301188eeeeac.ctex"]
 
 [params]
 
